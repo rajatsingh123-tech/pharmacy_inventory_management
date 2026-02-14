@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication - Pharmacy Management</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 450px;
+            padding: 40px;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-header i {
+            font-size: 60px;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .auth-header h2 {
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 28px;
+        }
+
+        .auth-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: #f0f2f5;
+            padding: 5px;
+            border-radius: 50px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #666;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .tab-btn i {
+            margin-right: 8px;
+            font-size: 14px;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group label i {
+            color: #667eea;
+            margin-right: 5px;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px 14px 14px 45px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+
+        .password-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .btn-auth {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-auth:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102,126,234,0.4);
+        }
+
+        .btn-auth:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .auth-links {
+            margin-top: 25px;
+            text-align: center;
+        }
+
+        .auth-links a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .auth-links a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .auth-links span {
+            color: #666;
+            margin: 0 10px;
+        }
+
+        .message-box {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .message-box.show {
+            display: block;
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .message-box.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .message-box.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .message-box.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .demo-credentials {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .demo-credentials h4 {
+            color: #333;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .demo-credentials p {
+            color: #666;
+            margin-bottom: 8px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .back-home {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-home a {
+            color: #666;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+
+        .back-home a:hover {
+            color: #667eea;
+        }
+
+        .back-home i {
+            margin-right: 5px;
+        }
+
+        .terms {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .terms a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <i class="fas fa-prescription-bottle-alt"></i>
+            <h2>PharmaCare</h2>
+            <p>Pharmacy Management System</p>
+        </div>
+        
+        <!-- Tab Buttons -->
+        <div class="tab-buttons">
+            <button class="tab-btn active" id="loginTab" onclick="switchTab('login')">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+            <button class="tab-btn" id="signupTab" onclick="switchTab('signup')">
+                <i class="fas fa-user-plus"></i> Sign Up
+            </button>
+            <button class="tab-btn" id="forgotTab" onclick="switchTab('forgot')">
+                <i class="fas fa-key"></i> Forgot
+            </button>
+        </div>
+        
+        <!-- LOGIN FORM -->
+        <div class="auth-form active" id="loginForm">
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Username or Email</label>
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="loginUsername" placeholder="Enter username or email" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="loginPassword" placeholder="Enter password" required>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-auth" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+            </form>
+        </div>
+        
+        <!-- SIGNUP FORM - FULLY WORKING -->
+        <div class="auth-form" id="signupForm">
+            <form onsubmit="handleSignup(event)">
+                <div class="form-group">
+                    <label><i class="fas fa-user-circle"></i> Full Name</label>
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="signupFullName" placeholder="Enter your full name" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-user-tag"></i> Username</label>
+                    <div class="input-group">
+                        <i class="fas fa-at"></i>
+                        <input type="text" id="signupUsername" placeholder="Choose a username" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> Email</label>
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="signupEmail" placeholder="Enter your email" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="signupPassword" placeholder="Create password (min. 6 characters)" required>
+                    </div>
+                    <div class="password-hint">Password must be at least 6 characters</div>
+                </div>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-check-circle"></i> Confirm Password</label>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="signupConfirmPassword" placeholder="Confirm password" required>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-auth" id="signupBtn">
+                    <i class="fas fa-user-plus"></i> Create Account
+                </button>
+            </form>
+        </div>
+        
+        <!-- FORGOT PASSWORD FORM -->
+        <div class="auth-form" id="forgotForm">
+            <form onsubmit="handleForgotPassword(event)">
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> Email Address</label>
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="forgotEmail" placeholder="Enter your registered email" required>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-auth" id="forgotBtn">
+                    <i class="fas fa-paper-plane"></i> Send Reset Link
+                </button>
+            </form>
+        </div>
+        
+        <!-- Message Box -->
+        <div id="messageBox" class="message-box"></div>
+        
+        <!-- Demo Credentials -->
+        <div class="demo-credentials">
+            <h4><i class="fas fa-info-circle" style="color: #667eea;"></i> Demo Accounts</h4>
+            <p><strong>Admin:</strong> admin / admin123</p>
+            <p><strong>New User?</strong> Create your own account using Sign Up!</p>
+        </div>
+        
+        <!-- Back to Home -->
+        <div class="back-home">
+            <a href="index.html"><i class="fas fa-arrow-left"></i> Back to Home</a>
+        </div>
+    </div>
+    
+    <script>
+        // ============ TAB SWITCHING ============
+        function switchTab(tab) {
+            // Update tab buttons
+            document.getElementById('loginTab').classList.remove('active');
+            document.getElementById('signupTab').classList.remove('active');
+            document.getElementById('forgotTab').classList.remove('active');
+            
+            // Update forms
+            document.getElementById('loginForm').classList.remove('active');
+            document.getElementById('signupForm').classList.remove('active');
+            document.getElementById('forgotForm').classList.remove('active');
+            
+            // Activate selected tab
+            if (tab === 'login') {
+                document.getElementById('loginTab').classList.add('active');
+                document.getElementById('loginForm').classList.add('active');
+            } else if (tab === 'signup') {
+                document.getElementById('signupTab').classList.add('active');
+                document.getElementById('signupForm').classList.add('active');
+            } else if (tab === 'forgot') {
+                document.getElementById('forgotTab').classList.add('active');
+                document.getElementById('forgotForm').classList.add('active');
+            }
+            
+            // Clear message
+            hideMessage();
+        }
+        
+        // ============ SHOW MESSAGE ============
+        function showMessage(text, type) {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.textContent = text;
+            messageBox.className = `message-box ${type} show`;
+            
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 5000);
+        }
+        
+        // ============ HIDE MESSAGE ============
+        function hideMessage() {
+            document.getElementById('messageBox').classList.remove('show');
+        }
+        
+        // ============ HANDLE SIGNUP - FULLY WORKING ============
+        async function handleSignup(event) {
+            event.preventDefault();
+            
+            const fullName = document.getElementById('signupFullName').value.trim();
+            const username = document.getElementById('signupUsername').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const confirmPassword = document.getElementById('signupConfirmPassword').value;
+            
+            // Validation
+            if (!fullName || !username || !email || !password || !confirmPassword) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showMessage('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showMessage('Passwords do not match', 'error');
+                return;
+            }
+            
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showMessage('Please enter a valid email address', 'error');
+                return;
+            }
+            
+            const signupBtn = document.getElementById('signupBtn');
+            const originalText = signupBtn.innerHTML;
+            signupBtn.disabled = true;
+            signupBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+            
+            try {
+                // Get the current port from window.location
+                const port = window.location.port || '3000';
+                const baseUrl = `http://localhost:${port}`;
+                
+                console.log('Sending signup request to:', `${baseUrl}/api/signup`);
+                
+               const response = await fetch('http://localhost:3000/api/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        fullName: fullName,
+                        username: username,
+                        email: email,
+                        password: password,
+                        confirmPassword: confirmPassword
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Signup response:', data);
+                
+                if (data.success) {
+                    showMessage('✅ ' + data.message, 'success');
+                    
+                    // Clear form
+                    document.getElementById('signupFullName').value = '';
+                    document.getElementById('signupUsername').value = '';
+                    document.getElementById('signupEmail').value = '';
+                    document.getElementById('signupPassword').value = '';
+                    document.getElementById('signupConfirmPassword').value = '';
+                    
+                    // Switch to login tab after 2 seconds
+                    setTimeout(() => {
+                        switchTab('login');
+                        showMessage('Please login with your new account', 'info');
+                    }, 2000);
+                } else {
+                    showMessage('❌ ' + data.message, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Signup error details:', error);
+                showMessage('❌ Cannot connect to server. Make sure backend is running on port 3000', 'error');
+            } finally {
+                signupBtn.disabled = false;
+                signupBtn.innerHTML = originalText;
+            }
+        }
+        
+        // ============ HANDLE LOGIN ============
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                showMessage('Please enter username and password', 'error');
+                return;
+            }
+            
+            const loginBtn = document.getElementById('loginBtn');
+            const originalText = loginBtn.innerHTML;
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+            
+            try {
+                const port = window.location.port || '3000';
+                const baseUrl = `http://localhost:${port}`;
+                
+                const response = await fetch('http://localhost:3000/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Save to localStorage
+                    localStorage.setItem('isLoggedIn', 'true');
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    showMessage('✅ Login successful! Redirecting...', 'success');
+                    
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                } else {
+                    showMessage('❌ ' + data.message, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('❌ Cannot connect to server. Make sure backend is running.', 'error');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = originalText;
+            }
+        }
+        
+        // ============ HANDLE FORGOT PASSWORD ============
+        async function handleForgotPassword(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('forgotEmail').value.trim();
+            
+            if (!email) {
+                showMessage('Please enter your email', 'error');
+                return;
+            }
+            
+            const forgotBtn = document.getElementById('forgotBtn');
+            const originalText = forgotBtn.innerHTML;
+            forgotBtn.disabled = true;
+            forgotBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            
+            try {
+                const port = window.location.port || '3000';
+                const baseUrl = `http://localhost:${port}`;
+                
+               const response = await fetch('http://localhost:3000/api/forgot-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('📧 ' + data.message, 'success');
+                    
+                    // Clear email field
+                    document.getElementById('forgotEmail').value = '';
+                    
+                    // Switch to login after 3 seconds
+                    setTimeout(() => {
+                        switchTab('login');
+                    }, 3000);
+                } else {
+                    showMessage('❌ ' + data.message, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Forgot password error:', error);
+                showMessage('❌ Cannot connect to server. Make sure backend is running.', 'error');
+            } finally {
+                forgotBtn.disabled = false;
+                forgotBtn.innerHTML = originalText;
+            }
+        }
+        
+        // ============ CHECK IF ALREADY LOGGED IN ============
+        window.addEventListener('load', function() {
+            if (localStorage.getItem('isLoggedIn') === 'true') {
+                window.location.href = 'dashboard.html';
+            }
+            
+            // Log which port we're using
+            console.log('Frontend running on port:', window.location.port || '3000');
+        });
+        
+        // ============ ENTER KEY HANDLING ============
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                if (document.getElementById('loginForm').classList.contains('active')) {
+                    handleLogin(e);
+                } else if (document.getElementById('signupForm').classList.contains('active')) {
+                    handleSignup(e);
+                } else if (document.getElementById('forgotForm').classList.contains('active')) {
+                    handleForgotPassword(e);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -10,22 +10,11 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ============ 🔥 IMPORTANT - RENDER PATH FIX ============
-// Render pe current directory resolve karo
-const __dirname = path.resolve();
-
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
-// ============ 🔥 STATIC FILES - RENDER KE LIYE FIXED PATH ============
-// Render pe frontend folder root mein hona chahiye
-app.use(express.static(path.join(__dirname, 'frontend')));
-
-// Debugging - path check karo
-console.log('📁 Current directory (__dirname):', __dirname);
-console.log('📁 Frontend path:', path.join(__dirname, 'frontend'));
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 // ============ USER SCHEMA ============
 const userSchema = new mongoose.Schema({
@@ -45,8 +34,8 @@ const User = mongoose.model('User', userSchema);
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER || 'singhrajat28290@gmail.com',
-        pass: process.env.EMAIL_PASS || 'stjz vjgx kjoq qvae'
+        user: 'singhrajat28290@gmail.com',
+        pass: 'stjz vjgx kjoq qvae'
     }
 });
 
@@ -63,7 +52,7 @@ const connectDB = async () => {
     try {
         console.log('\n🔗 Connecting to MongoDB Atlas...');
         
-        const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://2433361:24116002405@cluster0.cbhkwju.mongodb.net/pharmacyDB?retryWrites=true&w=majority&appName=Cluster0';
+        const mongoURI = 'mongodb+srv://2433361:24116002405@cluster0.cbhkwju.mongodb.net/pharmacyDB?retryWrites=true&w=majority&appName=Cluster0';
         
         await mongoose.connect(mongoURI);
         
@@ -100,7 +89,7 @@ async function createAdminUser() {
     }
 }
 
-// ============ SIGNUP ============
+// ============ SIGNUP - Koi bhi user register kar sakta hai ============
 app.post('/api/signup', async (req, res) => {
     try {
         const { fullName, username, email, password, confirmPassword } = req.body;
@@ -150,7 +139,7 @@ app.post('/api/signup', async (req, res) => {
         await newUser.save();
         
         console.log('✅ New user saved:', username);
-        console.log('📧 Email registered:', email);
+        console.log('📧 Email registered:', email); // ✅ Har user ka email save hoga
         
         res.json({
             success: true,
@@ -213,7 +202,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ============ FORGOT PASSWORD ============
+// ============ FORGOT PASSWORD - DYNAMIC for ANY user ============
 app.post('/api/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
@@ -227,28 +216,31 @@ app.post('/api/forgot-password', async (req, res) => {
             });
         }
         
+        // ✅ Dynamically find user by email (koi bhi user ho sakta hai)
         const user = await User.findOne({ email: email });
         
         if (user) {
             console.log('✅ User found in database:', user.username);
             
+            // Generate reset token
             const resetToken = jwt.sign(
                 { userId: user._id },
-                process.env.JWT_SECRET || 'your-secret-key-here',
+                'your-secret-key-here',
                 { expiresIn: '15m' }
             );
             
+            // Save token to user
             user.resetToken = resetToken;
             user.resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
             await user.save();
             
-            // ============ 🔥 RENDER URL FIX ============
-            const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
-            const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+            // Create reset link
+            const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
             
+            // ✅ DYNAMIC EMAIL - Har user ko uske email par jayega
             const mailOptions = {
                 from: '"PharmaCare Pharmacy" <singhrajat28290@gmail.com>',
-                to: user.email,
+                to: user.email, // ✅ Dynamic - user ka apna email
                 subject: 'Password Reset Request - PharmaCare',
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -270,6 +262,7 @@ app.post('/api/forgot-password', async (req, res) => {
                 `
             };
             
+            // Send email
             await transporter.sendMail(mailOptions);
             
             console.log('✅ Password reset email sent to:', user.email);
@@ -281,6 +274,7 @@ app.post('/api/forgot-password', async (req, res) => {
             
         } else {
             console.log('⚠️ Email not found in database:', email);
+            // Security - don't reveal if email exists
             res.json({
                 success: true,
                 message: 'If this email is registered, you will receive a reset link.'
@@ -417,7 +411,10 @@ app.post('/api/reset-password', async (req, res) => {
             });
         }
         
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
+        // Verify token
+        const decoded = jwt.verify(token, 'your-secret-key-here');
+        
+        // Find user
         const user = await User.findById(decoded.userId);
         
         if (!user) {
@@ -427,6 +424,7 @@ app.post('/api/reset-password', async (req, res) => {
             });
         }
         
+        // Update password
         user.password = password;
         user.resetToken = undefined;
         user.resetTokenExpiry = undefined;
@@ -498,7 +496,7 @@ app.get('/api/check-auth', async (req, res) => {
     }
 });
 
-// ============ GET ALL USERS ============
+// ============ GET ALL USERS (for testing) ============
 app.get('/api/users', async (req, res) => {
     try {
         const users = await User.find({}, { password: 0 });
@@ -527,7 +525,7 @@ try {
     app.use('/api/medicines', medicineRoutes);
     console.log('✅ Medicine routes loaded');
 } catch (error) {
-    console.log('⚠️ Medicine routes not found - using default routes');
+    console.log('⚠️ Medicine routes not found');
 }
 
 // ============ HEALTH CHECK ============
@@ -539,35 +537,34 @@ app.get('/api/health', (req, res) => {
         status: 'healthy',
         database: dbState === 1 ? 'connected' : 'disconnected',
         emailService: '✅ Configured',
-        environment: process.env.NODE_ENV || 'development',
-        renderUrl: process.env.RENDER_EXTERNAL_URL || 'local',
+        totalUsers: 'Dynamic - any user can reset password',
         timestamp: new Date().toISOString()
     });
 });
 
-// ============ 🔥 SERVE HTML PAGES - RENDER FIXED PATHS ============
+// ============ SERVE HTML PAGES ============
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'login.html'));
+    res.sendFile(path.join(__dirname, '../frontend/login.html'));
 });
 
 app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'dashboard.html'));
+    res.sendFile(path.join(__dirname, '../frontend/dashboard.html'));
 });
 
 app.get('/add-medicine', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'add-medicine.html'));
+    res.sendFile(path.join(__dirname, '../frontend/add-medicine.html'));
 });
 
 app.get('/view-medicines', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'view-medicines.html'));
+    res.sendFile(path.join(__dirname, '../frontend/view-medicines.html'));
 });
 
 app.get('/billing', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'billing.html'));
+    res.sendFile(path.join(__dirname, '../frontend/billing.html'));
 });
 
 // ============ START SERVER ============
@@ -576,42 +573,30 @@ const startServer = async () => {
     
     app.listen(PORT, () => {
         console.log(`\n🏥 Pharmacy Management System`);
-        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`🚀 Server running on http://localhost:${PORT}`);
         console.log(`📊 MongoDB: ${dbConnected ? '✅ CONNECTED' : '❌ DISCONNECTED'}`);
         console.log(`📧 Email Service: ✅ Configured`);
         console.log(`🔐 Authentication: ✅ DYNAMIC FORGOT PASSWORD`);
-        console.log(`📁 Current directory: ${__dirname}`);
-        console.log(`📁 Frontend path: ${path.join(__dirname, 'frontend')}`);
-        console.log(`🌍 Render URL: ${process.env.RENDER_EXTERNAL_URL || 'local'}`);
         
-        // Check if frontend files exist
-        const fs = require('fs');
-        const frontendPath = path.join(__dirname, 'frontend');
-        if (fs.existsSync(frontendPath)) {
-            console.log(`✅ Frontend folder found at: ${frontendPath}`);
-            try {
-                const files = fs.readdirSync(frontendPath);
-                console.log(`📄 Frontend files: ${files.join(', ')}`);
-            } catch (e) {
-                console.log(`⚠️ Cannot read frontend files:`, e.message);
-            }
-        } else {
-            console.log(`❌ Frontend folder NOT found at: ${frontendPath}`);
-            console.log(`📁 Please check your project structure on Render`);
+        if (dbConnected) {
+            console.log(`\n📊 Users in database: Will be saved in MongoDB`);
+            console.log(`   - ANY user can reset their password`);
+            console.log(`   - Check users: http://localhost:${PORT}/api/users\n`);
         }
         
-        console.log(`\n📡 Available Endpoints:`);
-        console.log(`   🔐 POST   /api/signup - Signup`);
+        console.log('📡 Available Endpoints:');
+        console.log(`   🔐 POST   /api/signup - Signup (ANY user can register)`);
         console.log(`   🔐 POST   /api/login - Login`);
-        console.log(`   🔐 POST   /api/forgot-password - Forgot Password`);
+        console.log(`   🔐 POST   /api/forgot-password - Forgot Password (DYNAMIC - ANY user)`);
         console.log(`   🔐 GET    /reset-password - Reset Password Page`);
         console.log(`   🔐 POST   /api/reset-password - Reset Password API`);
         console.log(`   🔐 POST   /api/logout - Logout`);
         console.log(`   🔐 GET    /api/check-auth - Check Auth`);
         console.log(`   📊 GET    /api/health - Health Check`);
         console.log(`   📊 GET    /api/users - All Users`);
+        console.log(`   💊 GET    /api/medicines - Get Medicines`);
         console.log(`\n🔑 Admin Login: admin / admin123`);
-        console.log(`✅ System ready!\n`);
+        console.log(`✅ System ready! ANY user can reset their password!\n`);
     });
 };
 

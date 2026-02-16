@@ -14,9 +14,17 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '../frontend')));
 
-// ============ USER SCHEMA ============
+// ============ 🔥 PATH FIX - TUMHARE STRUCTURE KE HISAB SE ============
+// Tumhara structure: backend/ (andar server.js) aur frontend/ (bahar)
+const frontendPath = path.join(__dirname, '..', 'frontend');
+app.use(express.static(frontendPath));
+
+console.log('✅ Server.js loaded successfully');
+console.log('📁 Backend path:', __dirname);
+console.log('📁 Frontend path:', frontendPath);
+
+// ============ USER SCHEMA - MONGODB MODEL ============
 const userSchema = new mongoose.Schema({
     fullName: { type: String, required: true },
     username: { type: String, required: true, unique: true },
@@ -34,14 +42,14 @@ const User = mongoose.model('User', userSchema);
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'singhrajat28290@gmail.com',
-        pass: 'stjz vjgx kjoq qvae'
+        user: process.env.EMAIL_USER || 'singhrajat28290@gmail.com',
+        pass: process.env.EMAIL_PASS || 'stjz vjgx kjoq qvae'
     }
 });
 
 transporter.verify((error, success) => {
     if (error) {
-        console.log('❌ Email config error:', error);
+        console.log('❌ Email config error:', error.message);
     } else {
         console.log('✅ Email server ready');
     }
@@ -52,22 +60,26 @@ const connectDB = async () => {
     try {
         console.log('\n🔗 Connecting to MongoDB Atlas...');
         
-        const mongoURI = 'mongodb+srv://2433361:24116002405@cluster0.cbhkwju.mongodb.net/pharmacyDB?retryWrites=true&w=majority&appName=Cluster0';
+        const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://2433361:24116002405@cluster0.cbhkwju.mongodb.net/pharmacyDB?retryWrites=true&w=majority&appName=Cluster0';
         
         await mongoose.connect(mongoURI);
         
         console.log('✅ MongoDB Atlas Connected Successfully!');
         
+        // Create admin user if not exists
         await createAdminUser();
         
         return true;
     } catch (error) {
         console.error('❌ MongoDB Connection Error:', error.message);
+        console.log('\n💡 TROUBLESHOOTING:');
+        console.log('1. MongoDB Atlas me IP whitelist karo (0.0.0.0/0)');
+        console.log('2. Check karo username/password sahi hai');
         return false;
     }
 };
 
-// Create default admin
+// Create admin user if not exists
 async function createAdminUser() {
     try {
         const adminExists = await User.findOne({ username: 'admin' });
@@ -83,6 +95,11 @@ async function createAdminUser() {
             
             await adminUser.save();
             console.log('✅ Default admin user created');
+            console.log('   → Username: admin');
+            console.log('   → Password: admin123');
+            console.log('   → Email: admin@pharmacy.com');
+        } else {
+            console.log('✅ Admin user already exists');
         }
     } catch (error) {
         console.log('⚠️ Error creating admin:', error.message);
@@ -96,6 +113,7 @@ app.post('/api/signup', async (req, res) => {
         
         console.log('📝 Signup attempt:', username);
         
+        // Validation
         if (!fullName || !username || !email || !password || !confirmPassword) {
             return res.status(400).json({
                 success: false,
@@ -117,6 +135,7 @@ app.post('/api/signup', async (req, res) => {
             });
         }
         
+        // Check if user already exists
         const existingUser = await User.findOne({ 
             $or: [{ username }, { email }] 
         });
@@ -128,6 +147,7 @@ app.post('/api/signup', async (req, res) => {
             });
         }
         
+        // Create new user in MongoDB
         const newUser = new User({
             fullName,
             username,
@@ -138,8 +158,8 @@ app.post('/api/signup', async (req, res) => {
         
         await newUser.save();
         
-        console.log('✅ New user saved:', username);
-        console.log('📧 Email registered:', email); // ✅ Har user ka email save hoga
+        console.log('✅ New user saved to MongoDB:', username);
+        console.log('📧 Email registered:', email);
         
         res.json({
             success: true,
@@ -148,6 +168,15 @@ app.post('/api/signup', async (req, res) => {
         
     } catch (error) {
         console.error('❌ Signup error:', error);
+        
+        // Check for duplicate key error
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Username or email already exists'
+            });
+        }
+        
         res.status(500).json({
             success: false,
             message: 'Server error during signup'
@@ -169,6 +198,7 @@ app.post('/api/login', async (req, res) => {
             });
         }
         
+        // Find user in MongoDB
         const user = await User.findOne({ 
             $or: [{ username }, { email: username }] 
         });
@@ -216,70 +246,65 @@ app.post('/api/forgot-password', async (req, res) => {
             });
         }
         
-        // ✅ Dynamically find user by email (koi bhi user ho sakta hai)
-        const user = await User.findOne({ email: email });
+        // Find user by email
+        const user = await User.findOne({ email });
         
-        if (user) {
-            console.log('✅ User found in database:', user.username);
-            
-            // Generate reset token
-            const resetToken = jwt.sign(
-                { userId: user._id },
-                'your-secret-key-here',
-                { expiresIn: '15m' }
-            );
-            
-            // Save token to user
-            user.resetToken = resetToken;
-            user.resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
-            await user.save();
-            
-            // Create reset link
-            const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
-            
-            // ✅ DYNAMIC EMAIL - Har user ko uske email par jayega
-            const mailOptions = {
-                from: '"PharmaCare Pharmacy" <singhrajat28290@gmail.com>',
-                to: user.email, // ✅ Dynamic - user ka apna email
-                subject: 'Password Reset Request - PharmaCare',
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-                        <h2 style="color: #667eea; text-align: center;">🔐 Password Reset Request</h2>
-                        <p>Hello <strong>${user.fullName}</strong>,</p>
-                        <p>We received a request to reset your password for your PharmaCare account.</p>
-                        <p><strong>Username:</strong> ${user.username}</p>
-                        <p><strong>Email:</strong> ${user.email}</p>
-                        <p>Click the button below to reset your password. This link will expire in <strong>15 minutes</strong>.</p>
-                        <div style="text-align: center; margin: 30px 0;">
-                            <a href="${resetLink}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">Reset Password</a>
-                        </div>
-                        <p>If you didn't request this, please ignore this email.</p>
-                        <p>If the button doesn't work, copy this link:</p>
-                        <p style="word-break: break-all; color: #667eea;">${resetLink}</p>
-                        <hr style="border: 1px solid #e0e0e0;">
-                        <p style="color: #666; font-size: 12px; text-align: center;">PharmaCare Pharmacy Management System</p>
-                    </div>
-                `
-            };
-            
-            // Send email
-            await transporter.sendMail(mailOptions);
-            
-            console.log('✅ Password reset email sent to:', user.email);
-            
-            res.json({
-                success: true,
-                message: 'Password reset link sent to your email!'
-            });
-            
-        } else {
-            console.log('⚠️ Email not found in database:', email);
-            // Security - don't reveal if email exists
-            res.json({
-                success: true,
-                message: 'If this email is registered, you will receive a reset link.'
+        if (!user) {
+            console.log('⚠️ Email not found:', email);
+            return res.json({
+                success: false,
+                message: 'This email is not registered. Please sign up first.'
             });
         }
+        
+        console.log('✅ User found:', user.username);
+        
+        // Generate reset token
+        const resetToken = jwt.sign(
+            { userId: user._id },
+            process.env.JWT_SECRET || 'your-secret-key-here',
+            { expiresIn: '15m' }
+        );
+        
+        // Save token to user
+        user.resetToken = resetToken;
+        user.resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
+        await user.save();
+        
+        // Create reset link with dynamic URL
+        const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+        const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+        
+        // Email content
+        const mailOptions = {
+            from: '"PharmaCare Pharmacy" <singhrajat28290@gmail.com>',
+            to: user.email,
+            subject: 'Password Reset Request - PharmaCare',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                    <h2 style="color: #667eea; text-align: center;">🔐 Password Reset Request</h2>
+                    <p>Hello <strong>${user.fullName}</strong>,</p>
+                    <p>We received a request to reset your password for your PharmaCare account.</p>
+                    <p><strong>Username:</strong> ${user.username}</p>
+                    <p><strong>Email:</strong> ${user.email}</p>
+                    <p>Click the button below to reset your password. This link will expire in <strong>15 minutes</strong>.</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${resetLink}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">Reset Password</a>
+                    </div>
+                    <p>If you didn't request this, please ignore this email.</p>
+                </div>
+            `
+        };
+        
+        // Send email
+        await transporter.sendMail(mailOptions);
+        
+        console.log('✅ Password reset email sent to:', user.email);
+        
+        res.json({
+            success: true,
+            message: 'Password reset link sent to your email!'
+        });
         
     } catch (error) {
         console.error('❌ Forgot password error:', error);
@@ -292,97 +317,7 @@ app.post('/api/forgot-password', async (req, res) => {
 
 // ============ RESET PASSWORD PAGE ============
 app.get('/reset-password', (req, res) => {
-    const { token } = req.query;
-    
-    res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Reset Password</title>
-            <style>
-                body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; margin: 0; }
-                .container { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-                h2 { color: #333; text-align: center; margin-bottom: 30px; }
-                .form-group { margin-bottom: 20px; }
-                label { display: block; margin-bottom: 8px; color: #555; font-weight: 500; }
-                input { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-                input:focus { border-color: #667eea; outline: none; }
-                button { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
-                button:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
-                .message { margin-top: 20px; padding: 12px; border-radius: 8px; display: none; }
-                .message.success { background: #d4edda; color: #155724; display: block; }
-                .message.error { background: #f8d7da; color: #721c24; display: block; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h2>🔐 Reset Password</h2>
-                <form id="resetForm">
-                    <input type="hidden" id="token" value="${token}">
-                    <div class="form-group">
-                        <label>New Password</label>
-                        <input type="password" id="password" placeholder="Enter new password" required minlength="6">
-                    </div>
-                    <div class="form-group">
-                        <label>Confirm Password</label>
-                        <input type="password" id="confirmPassword" placeholder="Confirm new password" required>
-                    </div>
-                    <button type="submit">Reset Password</button>
-                </form>
-                <div id="message" class="message"></div>
-            </div>
-            
-            <script>
-                document.getElementById('resetForm').addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    
-                    const password = document.getElementById('password').value;
-                    const confirmPassword = document.getElementById('confirmPassword').value;
-                    const token = document.getElementById('token').value;
-                    const messageDiv = document.getElementById('message');
-                    
-                    if (password !== confirmPassword) {
-                        messageDiv.className = 'message error';
-                        messageDiv.textContent = 'Passwords do not match';
-                        return;
-                    }
-                    
-                    if (password.length < 6) {
-                        messageDiv.className = 'message error';
-                        messageDiv.textContent = 'Password must be at least 6 characters';
-                        return;
-                    }
-                    
-                    try {
-                        const response = await fetch('/api/reset-password', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ token, password, confirmPassword })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.success) {
-                            messageDiv.className = 'message success';
-                            messageDiv.textContent = '✅ ' + data.message;
-                            
-                            setTimeout(() => {
-                                window.location.href = '/login';
-                            }, 3000);
-                        } else {
-                            messageDiv.className = 'message error';
-                            messageDiv.textContent = '❌ ' + data.message;
-                        }
-                        
-                    } catch (error) {
-                        messageDiv.className = 'message error';
-                        messageDiv.textContent = '❌ Error resetting password';
-                    }
-                });
-            </script>
-        </body>
-        </html>
-    `);
+    res.sendFile(path.join(frontendPath, 'login.html'));
 });
 
 // ============ RESET PASSWORD API ============
@@ -412,7 +347,7 @@ app.post('/api/reset-password', async (req, res) => {
         }
         
         // Verify token
-        const decoded = jwt.verify(token, 'your-secret-key-here');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
         
         // Find user
         const user = await User.findById(decoded.userId);
@@ -531,40 +466,60 @@ try {
 // ============ HEALTH CHECK ============
 app.get('/api/health', (req, res) => {
     const dbState = mongoose.connection.readyState;
+    const dbStatus = dbState === 1 ? 'connected' : 
+                     dbState === 0 ? 'disconnected' : 
+                     dbState === 2 ? 'connecting' : 'error';
     
     res.json({
         success: true,
         status: 'healthy',
-        database: dbState === 1 ? 'connected' : 'disconnected',
+        database: dbStatus,
         emailService: '✅ Configured',
-        totalUsers: 'Dynamic - any user can reset password',
+        environment: process.env.NODE_ENV || 'development',
         timestamp: new Date().toISOString()
     });
 });
 
 // ============ SERVE HTML PAGES ============
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
 app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/login.html'));
+    res.sendFile(path.join(frontendPath, 'login.html'));
 });
 
 app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dashboard.html'));
+    res.sendFile(path.join(frontendPath, 'dashboard.html'));
 });
 
 app.get('/add-medicine', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/add-medicine.html'));
+    res.sendFile(path.join(frontendPath, 'add-medicine.html'));
 });
 
 app.get('/view-medicines', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/view-medicines.html'));
+    res.sendFile(path.join(frontendPath, 'view-medicines.html'));
 });
 
 app.get('/billing', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/billing.html'));
+    res.sendFile(path.join(frontendPath, 'billing.html'));
+});
+
+// ============ 404 HANDLER ============
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'Route not found'
+    });
+});
+
+// ============ ERROR HANDLER ============
+app.use((err, req, res, next) => {
+    console.error('❌ Server Error:', err.stack);
+    res.status(500).json({
+        success: false,
+        message: 'Internal Server Error'
+    });
 });
 
 // ============ START SERVER ============
@@ -573,21 +528,22 @@ const startServer = async () => {
     
     app.listen(PORT, () => {
         console.log(`\n🏥 Pharmacy Management System`);
-        console.log(`🚀 Server running on http://localhost:${PORT}`);
+        console.log(`🚀 Server running on port ${PORT}`);
         console.log(`📊 MongoDB: ${dbConnected ? '✅ CONNECTED' : '❌ DISCONNECTED'}`);
         console.log(`📧 Email Service: ✅ Configured`);
-        console.log(`🔐 Authentication: ✅ DYNAMIC FORGOT PASSWORD`);
+        console.log(`🔐 Authentication: ✅ WORKING`);
+        console.log(`📁 Frontend path: ${frontendPath}`);
         
         if (dbConnected) {
-            console.log(`\n📊 Users in database: Will be saved in MongoDB`);
-            console.log(`   - ANY user can reset their password`);
+            console.log(`\n📊 Users are saved in MongoDB`);
+            console.log(`   - ANY user can reset password`);
             console.log(`   - Check users: http://localhost:${PORT}/api/users\n`);
         }
         
         console.log('📡 Available Endpoints:');
-        console.log(`   🔐 POST   /api/signup - Signup (ANY user can register)`);
+        console.log(`   🔐 POST   /api/signup - Signup`);
         console.log(`   🔐 POST   /api/login - Login`);
-        console.log(`   🔐 POST   /api/forgot-password - Forgot Password (DYNAMIC - ANY user)`);
+        console.log(`   🔐 POST   /api/forgot-password - Forgot Password`);
         console.log(`   🔐 GET    /reset-password - Reset Password Page`);
         console.log(`   🔐 POST   /api/reset-password - Reset Password API`);
         console.log(`   🔐 POST   /api/logout - Logout`);
@@ -596,7 +552,7 @@ const startServer = async () => {
         console.log(`   📊 GET    /api/users - All Users`);
         console.log(`   💊 GET    /api/medicines - Get Medicines`);
         console.log(`\n🔑 Admin Login: admin / admin123`);
-        console.log(`✅ System ready! ANY user can reset their password!\n`);
+        console.log(`✅ System ready!\n`);
     });
 };
 

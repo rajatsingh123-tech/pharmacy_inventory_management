@@ -2,13 +2,23 @@
   "name": "pharmacy-management-system",
   "version": "1.0.0",
   "description": "Pharmacy Management System",
+  "main": "backend/server.js",
   "scripts": {
-    "start": "cd backend && node server.js",
-    "build": "cd backend && npm install",
-    "postinstall": "cd backend && npm install"
+    "start": "node backend/server.js",
+    "install-backend": "cd backend && npm install",
+    "build": "npm run install-backend"
   },
   "engines": {
     "node": "20.x",
     "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "jsonwebtoken": "^9.0.0",
+    "nodemailer": "^6.9.0",
+    "body-parser": "^1.20.1"
   }
 }

@@ -1,107 +1,21 @@
-// ============ SIMPLE AUTHENTICATION ============
+// ============ PHARMACY MANAGEMENT SYSTEM - AUTHENTICATION ============
+const BASE_URL = 'https://pharmacy-backend-api-31hh.onrender.com';
 
-// Check if user is logged in
-// ============ COMPLETE AUTHENTICATION HELPER ============
-
-// Check if user is logged in
+// 1. Check if user is logged in
 function isAuthenticated() {
     return localStorage.getItem('isLoggedIn') === 'true';
 }
 
-// Get current user
+// 2. Get current user data
 function getCurrentUser() {
     const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+    return userStr ? JSON.parse(userStr) : { username: localStorage.getItem('username') || 'Admin' };
 }
 
-// Logout function
-async function logout() {
-    const token = localStorage.getItem('authToken');
-    
-    try {
-        await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/logout', {
-            method: 'POST',
-            headers: {
-                'Authorization': token || ''
-            }
-        });
-    } catch (error) {
-        console.log('Logout API error:', error);
-    }
-    
-    // Clear localStorage
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    
-    // Redirect to login
-    window.location.href = 'login.html';
-}
-
-// Protect pages
-function protectPage() {
-    const currentPage = window.location.pathname.split('/').pop();
-    const publicPages = ['index.html', 'login.html', 'view-medicines.html'];
-    const protectedPages = ['dashboard.html', 'add-medicine.html', 'billing.html'];
-    
-    if (protectedPages.includes(currentPage) && !isAuthenticated()) {
-        window.location.href = 'login.html';
-        return false;
-    }
-    return true;
-}
-
-// Update navigation
-function updateNavigation() {
-    const nav = document.querySelector('nav ul');
-    if (!nav) return;
-    
-    const isLoggedIn = isAuthenticated();
-    const loginLink = nav.querySelector('a[href="login.html"]');
-    const logoutBtn = nav.querySelector('.logout-btn');
-    
-    if (isLoggedIn) {
-        if (loginLink) {
-            loginLink.parentElement.style.display = 'none';
-        }
-        
-        if (!logoutBtn) {
-            const li = document.createElement('li');
-            const user = getCurrentUser();
-            li.innerHTML = `
-                <a href="#" onclick="logout()" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i> Logout (${user?.username || 'Admin'})
-                </a>
-            `;
-            nav.appendChild(li);
-        }
-    } else {
-        if (loginLink) {
-            loginLink.parentElement.style.display = '';
-        }
-        
-        if (logoutBtn) {
-            logoutBtn.parentElement.remove();
-        }
-    }
-}
-
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    protectPage();
-    updateNavigation();
-});
-
-// Global functions
-window.isAuthenticated = isAuthenticated;
-window.getCurrentUser = getCurrentUser;
-window.logout = logout;
-window.protectPage = protectPage;
-
-// Login function
+// 3. Login User Function
 async function loginUser(username, password) {
     try {
-        const response = await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/login', {
+        const response = await fetch(`${BASE_URL}/api/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -112,27 +26,30 @@ async function loginUser(username, password) {
         const data = await response.json();
         
         if (data.success) {
-            // Save to localStorage
+            // Data ko localStorage mein save karein
             localStorage.setItem('isLoggedIn', 'true');
             localStorage.setItem('authToken', data.token);
             localStorage.setItem('username', data.user.username);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.setItem('loginTime', new Date().getTime());
+            
             return { success: true, message: 'Login successful' };
         } else {
-            return { success: false, message: data.message };
+            return { success: false, message: data.message || 'Invalid username or password' };
         }
     } catch (error) {
         console.error('Login error:', error);
-        return { success: false, message: 'Server connection error' };
+        return { success: false, message: 'Server connection error. Please try again.' };
     }
 }
 
-// Logout function
+// 4. Logout Function
 async function logout() {
     const token = localStorage.getItem('authToken');
     
-    // Call logout API
+    // Server ko logout request bhejein (Optional but good practice)
     try {
-        await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/logout', {
+        await fetch(`${BASE_URL}/api/logout`, {
             method: 'POST',
             headers: {
                 'Authorization': token || ''
@@ -142,24 +59,22 @@ async function logout() {
         console.log('Logout API error:', error);
     }
     
-    // Clear localStorage
+    // Local data saaf karein
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('authToken');
     localStorage.removeItem('username');
+    localStorage.removeItem('user');
     localStorage.removeItem('loginTime');
     
-    // Redirect to login
+    // Login page par wapas bhej dein
     window.location.href = 'login.html';
 }
 
-// Protect pages - har page pe yeh check karega
+// 5. Page Protection - Unauthorized access rokne ke liye
 function protectPage() {
     const currentPage = window.location.pathname.split('/').pop();
     
-    // Public pages - bina login ke open kar sakte hain
-    const publicPages = ['index.html', 'login.html', 'view-medicines.html'];
-    
-    // Protected pages - login required
+    // Pages jahan login zaroori hai
     const protectedPages = ['dashboard.html', 'add-medicine.html', 'billing.html'];
     
     if (protectedPages.includes(currentPage) && !isAuthenticated()) {
@@ -169,7 +84,7 @@ function protectPage() {
     return true;
 }
 
-// Navigation menu update karo (logout button add karo)
+// 6. Navigation Update - Login/Logout button dikhane ke liye
 function updateNavigation() {
     const nav = document.querySelector('nav ul');
     if (!nav) return;
@@ -179,38 +94,44 @@ function updateNavigation() {
     const logoutBtn = nav.querySelector('.logout-btn');
     
     if (isLoggedIn) {
-        // Login link hide karo
+        // Login link hide karein
         if (loginLink) {
             loginLink.parentElement.style.display = 'none';
         }
         
-        // Logout button add karo agar nahi hai
+        // Logout button add karein agar nahi hai
         if (!logoutBtn) {
+            const user = getCurrentUser();
             const li = document.createElement('li');
-            li.innerHTML = '<a href="#" onclick="logout()" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>';
+            li.innerHTML = `
+                <a href="#" onclick="logout()" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Logout (${user.username})
+                </a>
+            `;
             nav.appendChild(li);
         }
     } else {
-        // Login link show karo
+        // Login link dikhayein
         if (loginLink) {
             loginLink.parentElement.style.display = '';
         }
         
-        // Logout button remove karo
+        // Logout button hatayein
         if (logoutBtn) {
             logoutBtn.parentElement.remove();
         }
     }
 }
 
-// Page load pe sab check karo
+// 7. Initialization on Page Load
 document.addEventListener('DOMContentLoaded', function() {
     protectPage();
     updateNavigation();
 });
 
-// Global functions
+// 8. Functions ko global banayein taaki HTML se call ho sakein
 window.isAuthenticated = isAuthenticated;
+window.getCurrentUser = getCurrentUser;
 window.loginUser = loginUser;
 window.logout = logout;
 window.protectPage = protectPage;

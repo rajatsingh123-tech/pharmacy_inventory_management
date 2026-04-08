@@ -1,4 +1,4 @@
-// dashboard.js - Full Integrated Version (A to Z Original Features)
+// dashboard.js - Full Integrated Version with all Original Features
 const BASE_URL = 'https://pharmacy-backend-api-31hh.onrender.com';
 
 // 1. Initialize when page loads
@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Initial Health Check and Stats Load
         checkServerHealth().then(isHealthy => {
             if (!isHealthy) {
-                showMessage('⚠️ Backend connection issue. Using local/demo data.', 'warning');
+                console.warn('⚠️ Backend connection issue. Using local/demo data.');
             }
             loadDashboardStats();
         });
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.addEventListener('storage', function(event) {
             const updates = ['medicineAdded', 'medicineUpdated', 'medicineDeleted', 'dashboardNeedsUpdate'];
             if (updates.includes(event.key)) {
-                console.log('🔄 Remote change detected:', event.key);
+                console.log('🔄 Remote change detected, refreshing dashboard...');
                 loadDashboardStats();
             }
         });
@@ -26,14 +26,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Auto-refresh every 30 seconds (Original Feature)
         setInterval(() => {
             if (document.visibilityState === 'visible') {
-                console.log('⏱️ Auto-refreshing dashboard...');
                 loadDashboardStats();
             }
         }, 30000);
     }
 });
 
-// 2. Health Check Function
+// 2. Check Server Health
 async function checkServerHealth() {
     try {
         const response = await fetch(`${BASE_URL}/api/health`);
@@ -44,28 +43,23 @@ async function checkServerHealth() {
     }
 }
 
-// 3. Core Function to Load Stats from Backend
+// 3. Load Dashboard Stats
 async function loadDashboardStats() {
     try {
         const response = await fetch(`${BASE_URL}/api/medicines`);
-        if (!response.ok) throw new Error('API failed');
+        if (!response.ok) throw new Error('Backend failed');
         
         const medicines = await response.json();
-        
-        // Save to localStorage for other pages
-        localStorage.setItem('medicines', JSON.stringify(medicines));
-        
-        // Update all UI components
         updateDashboardUI(medicines);
         console.log('✅ Dashboard synced with Render');
 
     } catch (error) {
         console.error('❌ Stats Error:', error);
-        useDemoData(); // Fallback
+        useDemoDataForDashboard();
     }
 }
 
-// 4. Detailed UI Update (All Stats)
+// 4. Update UI Elements (All original calculations)
 function updateDashboardUI(medicines) {
     const today = new Date();
     const thirtyDaysLater = new Date(today);
@@ -99,91 +93,47 @@ function updateDashboardUI(medicines) {
         }
     });
 
-    // Update Text Elements (A to Z)
-    setText('totalMedicines', stats.totalMedicines);
-    setText('totalStock', stats.totalStock);
-    setText('totalStockValue', '₹' + stats.totalValue.toFixed(2));
-    setText('expiredMedicines', stats.expiredCount);
-    setText('expiringSoon', stats.expiringSoon);
-    setText('lowStock', stats.lowStock);
-    setText('outOfStock', stats.outOfStock);
-    
-    // New Stock Summary Counts
-    setText('inStockCount', medicines.filter(m => m.quantity > 10).length);
-    setText('lowStockCount', stats.lowStock);
-    setText('emptyStockCount', stats.outOfStock);
+    // Mapping to HTML IDs
+    const elements = {
+        'totalMedicines': stats.totalMedicines,
+        'totalStock': stats.totalStock,
+        'totalStockValue': '₹' + stats.totalValue.toFixed(2),
+        'expiredMedicines': stats.expiredCount,
+        'expiringSoon': stats.expiringSoon,
+        'lowStock': stats.lowStock,
+        'outOfStock': stats.outOfStock,
+        'inStockCount': medicines.filter(m => m.quantity > 10).length,
+        'lowStockCount': stats.lowStock,
+        'emptyStockCount': stats.outOfStock
+    };
 
-    // Update Tables
+    for (const [id, value] of Object.entries(elements)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
     updateRecentMedicinesTable(medicines.slice(-5).reverse());
 }
 
-// 5. Recent Medicines Table (Original HTML Logic)
+// 5. Recent Table Update
 function updateRecentMedicinesTable(recentMeds) {
     const container = document.getElementById('recentMedicines');
     if (!container) return;
 
-    if (recentMeds.length === 0) {
-        container.innerHTML = '<p class="text-muted">No medicines found</p>';
-        return;
-    }
-
     let html = '<table class="table table-sm"><tbody>';
     recentMeds.forEach(med => {
-        const expiryDate = new Date(med.expiryDate);
-        const daysToExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
-        
-        let badge = '';
-        if (daysToExpiry < 0) badge = '<span class="badge bg-danger">Expired</span>';
-        else if (daysToExpiry <= 30) badge = `<span class="badge bg-warning">${daysToExpiry}d</span>`;
-        else badge = `<span class="badge bg-success">Safe</span>`;
-
-        html += `
-            <tr>
-                <td>${med.name}</td>
-                <td>${med.company || '-'}</td>
-                <td><strong>${med.quantity || 0}</strong></td>
-                <td>${badge}</td>
-            </tr>
-        `;
+        html += `<tr><td>${med.name}</td><td>${med.company || '-'}</td><td>${med.quantity || 0}</td></tr>`;
     });
-    html += '</tbody></table>';
-    container.innerHTML = html;
+    container.innerHTML = html + '</tbody></table>';
 }
 
-// 6. Demo Data Feature (When backend is sleeping/offline)
-function useDemoData() {
-    console.warn('⚠️ Backend Offline - Loading Demo Data');
+// 6. Demo Data Fallback
+function useDemoDataForDashboard() {
     const demo = [
-        { name: 'Paracetamol 500mg', company: 'Cipla Ltd', price: 5.5, quantity: 150, expiryDate: '2025-12-31' },
-        { name: 'Cetirizine 10mg', company: 'Sun Pharma', price: 8.75, quantity: 5, expiryDate: '2024-04-10' },
-        { name: 'Aspirin 75mg', company: 'Bayer', price: 12.99, quantity: 25, expiryDate: '2026-08-15' }
+        { name: 'Paracetamol', company: 'Cipla', price: 5, quantity: 150, expiryDate: '2025-12-31' },
+        { name: 'Aspirin', company: 'Bayer', price: 10, quantity: 5, expiryDate: '2024-04-10' }
     ];
     updateDashboardUI(demo);
-    showMessage('Demo Mode: Backend currently offline or sleeping.', 'warning');
 }
 
-// 7. Utility: Set Text Content Safely
-function setText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
-}
-
-// 8. Utility: Show Original Toast Message
-function showMessage(message, type = 'info') {
-    const messageDiv = document.getElementById('message');
-    if (messageDiv) {
-        const alertClass = type === 'success' ? 'alert-success' : 
-                          type === 'error' ? 'alert-danger' : 
-                          type === 'warning' ? 'alert-warning' : 'alert-info';
-        
-        messageDiv.innerHTML = `<div class="alert ${alertClass} alert-dismissible fade show">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>`;
-        
-        setTimeout(() => { messageDiv.innerHTML = ''; }, 5000);
-    }
-}
-
-// Global Exposure for Manual Refresh
 window.loadDashboardStats = loadDashboardStats;

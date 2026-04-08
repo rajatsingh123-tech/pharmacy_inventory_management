@@ -1,0 +1,14 @@
+{
+  "name": "pharmacy-management-system",
+  "version": "1.0.0",
+  "description": "Pharmacy Management System",
+  "scripts": {
+    "start": "cd backend && node server.js",
+    "build": "cd backend && npm install",
+    "postinstall": "cd backend && npm install"
+  },
+  "engines": {
+    "node": "16.x",
+    "npm": "8.x"
+  }
+}

@@ -1,4 +1,7 @@
-// main.js - Main JavaScript without authentication
+// main.js - Main JavaScript with Backend URL fix
+
+// 1. Sabse pehle apna Render Backend URL yahan declare karo
+const API_BASE_URL = 'https://pharmacy-backend-api-31hh.onrender.com';
 
 // Show message function
 function showMessage(message, type = 'info') {
@@ -17,35 +20,32 @@ function showMessage(message, type = 'info') {
             </div>
         `;
         
-        // Auto remove message after 5 seconds
         setTimeout(() => {
             if (messageDiv.innerHTML.includes(message)) {
                 messageDiv.innerHTML = '';
             }
         }, 5000);
     }
-    
     console.log(`${type.toUpperCase()}: ${message}`);
 }
 
 // API request helper
-async function apiRequest(url, options = {}) {
-    // Default headers
+async function apiRequest(endpoint, options = {}) { // URL ki jagah endpoint use karenge
+    // Yahan hum base URL aur endpoint ko jod rahe hain
+    const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+    
     const headers = {
         'Content-Type': 'application/json',
         ...options.headers
     };
     
-    // Merge options
     const requestOptions = {
         ...options,
         headers
     };
     
     try {
-        const response = await fetch(url, requestOptions);
-        
-        // Parse JSON response
+        const response = await fetch(fullUrl, requestOptions);
         const data = await response.json();
         
         if (!response.ok) {
@@ -63,7 +63,8 @@ async function apiRequest(url, options = {}) {
 // Check server health
 async function checkServerHealth() {
     try {
-        const response = await fetch('/api/health');
+        // Yahan bhi full Render URL ka use ho raha hai
+        const response = await fetch(`${API_BASE_URL}/api/health`);
         if (!response.ok) {
             return false;
         }
@@ -79,11 +80,12 @@ async function checkServerHealth() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🏥 Pharmacy Management System loaded');
     
-    // Check server health on dashboard
     if (window.location.pathname.includes('dashboard.html')) {
         checkServerHealth().then(isHealthy => {
             if (!isHealthy) {
                 showMessage('⚠️ Backend server connection issue detected', 'warning');
+            } else {
+                console.log('✅ Backend connected successfully');
             }
         });
     }
@@ -93,5 +95,6 @@ document.addEventListener('DOMContentLoaded', function() {
 window.utils = {
     showMessage,
     apiRequest,
-    checkServerHealth
+    checkServerHealth,
+    API_BASE_URL // Isse baaki files mein bhi use kar sakte hain
 };

@@ -83,7 +83,7 @@ async function handleMedicineFormSubmit(e) {
         
         console.log('Submitting medicine:', medicine);
         
-        const response = await fetch('http://localhost:3000/api/medicines', {
+        const response = await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/medicines', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -143,7 +143,7 @@ async function loadMedicines() {
         
         // Try multiple API endpoints
         const apiEndpoints = [
-            'http://localhost:3000/api/medicines',
+            'http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/medicines',
             '/api/medicines'
         ];
         
@@ -645,7 +645,7 @@ function editMedicine(id) {
 // Update medicine quantity
 async function updateMedicineQuantity(id, quantity) {
     try {
-        const response = await fetch(`http://localhost:3000/api/medicines/${id}`, {
+        const response = await fetch(`http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/medicines/${id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -684,7 +684,7 @@ async function deleteMedicine(id) {
     }
     
     try {
-        const response = await fetch(`http://localhost:3000/api/medicines/${id}`, {
+        const response = await fetch(`http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/medicines/${id}`, {
             method: 'DELETE'
         });
         
@@ -729,7 +729,7 @@ function triggerDashboardUpdate() {
 // Test backend connection
 async function testBackendConnection() {
     try {
-        const response = await fetch('http://localhost:3000/api/health');
+        const response = await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/health');
         const data = await response.json();
         console.log('Backend health:', data);
         return data.status === 'healthy';

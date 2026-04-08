@@ -58,7 +58,7 @@ async function loadDashboardData() {
 // Fetch medicines from API
 async function fetchMedicines() {
     try {
-        const response = await fetch('http://localhost:3000/api/medicines');
+        const response = await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/medicines');
         
         if (!response.ok) {
             throw new Error(`HTTP error: ${response.status}`);

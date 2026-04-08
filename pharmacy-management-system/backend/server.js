@@ -235,7 +235,7 @@ app.post('/api/forgot-password', async (req, res) => {
             await user.save();
             
             // Create reset link
-            const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
+            const resetLink = `http://https://pharmacy-backend-api-31hh.onrender.com:3000/reset-password?token=${resetToken}`;
             
             // ✅ DYNAMIC EMAIL - Har user ko uske email par jayega
             const mailOptions = {
@@ -573,7 +573,7 @@ const startServer = async () => {
     
     app.listen(PORT, () => {
         console.log(`\n🏥 Pharmacy Management System`);
-        console.log(`🚀 Server running on http://localhost:${PORT}`);
+        console.log(`🚀 Server running on http://https://pharmacy-backend-api-31hh.onrender.com:${PORT}`);
         console.log(`📊 MongoDB: ${dbConnected ? '✅ CONNECTED' : '❌ DISCONNECTED'}`);
         console.log(`📧 Email Service: ✅ Configured`);
         console.log(`🔐 Authentication: ✅ DYNAMIC FORGOT PASSWORD`);
@@ -581,7 +581,7 @@ const startServer = async () => {
         if (dbConnected) {
             console.log(`\n📊 Users in database: Will be saved in MongoDB`);
             console.log(`   - ANY user can reset their password`);
-            console.log(`   - Check users: http://localhost:${PORT}/api/users\n`);
+            console.log(`   - Check users: http://https://pharmacy-backend-api-31hh.onrender.com:${PORT}/api/users\n`);
         }
         
         console.log('📡 Available Endpoints:');

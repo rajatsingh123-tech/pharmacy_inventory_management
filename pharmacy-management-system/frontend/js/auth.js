@@ -19,7 +19,7 @@ async function logout() {
     const token = localStorage.getItem('authToken');
     
     try {
-        await fetch('http://localhost:3000/api/logout', {
+        await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/logout', {
             method: 'POST',
             headers: {
                 'Authorization': token || ''
@@ -101,7 +101,7 @@ window.protectPage = protectPage;
 // Login function
 async function loginUser(username, password) {
     try {
-        const response = await fetch('http://localhost:3000/api/login', {
+        const response = await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -132,7 +132,7 @@ async function logout() {
     
     // Call logout API
     try {
-        await fetch('http://localhost:3000/api/logout', {
+        await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/logout', {
             method: 'POST',
             headers: {
                 'Authorization': token || ''

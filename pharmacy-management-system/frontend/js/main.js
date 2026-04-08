@@ -1,7 +1,7 @@
 // main.js - Main JavaScript with Backend URL fix
 
 // 1. Sabse pehle apna Render Backend URL yahan declare karo
-const API_BASE_URL = 'https://pharmacy-backend-api-31hh.onrender.com';
+const API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 
 // Show message function
 function showMessage(message, type = 'info') {

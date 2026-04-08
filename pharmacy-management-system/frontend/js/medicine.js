@@ -1,5 +1,5 @@
 // medicine.js - Pharmacy Management System (Full Render Version)
-const BASE_URL = 'https://pharmacy-backend-api-31hh.onrender.com';
+const BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 let medicineData = [];
 
 document.addEventListener('DOMContentLoaded', function() {

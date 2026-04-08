@@ -1,5 +1,5 @@
 // ============ PHARMACY MANAGEMENT SYSTEM - AUTHENTICATION ============
-const BASE_URL = 'https://pharmacy-backend-api-31hh.onrender.com';
+const BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 
 // 1. Check if user is logged in
 function isAuthenticated() {

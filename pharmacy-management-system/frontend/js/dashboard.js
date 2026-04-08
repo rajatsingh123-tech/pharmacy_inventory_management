@@ -1,5 +1,5 @@
 // dashboard.js - Full Integrated Version with all Original Features
-const BASE_URL = 'https://pharmacy-backend-api-31hh.onrender.com';
+const BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 
 // 1. Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {

@@ -72,7 +72,7 @@ async function loadMedicinesForBilling() {
         medicineSelect.disabled = true;
         
         // Fetch medicines from API
-        const response = await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/medicines');
+        const response = await fetch('http://https://pharmacy-backend-api-3ihh.onrender.com:3000/api/medicines');
         
         if (!response.ok) {
             throw new Error(`HTTP error: ${response.status}`);
@@ -463,7 +463,7 @@ async function processBill() {
         
         // Try to update stock in backend
         try {
-            const response = await fetch('http://https://pharmacy-backend-api-31hh.onrender.com:3000/api/medicines/bill/process', {
+            const response = await fetch('http://https://pharmacy-backend-api-3ihh.onrender.com:3000/api/medicines/bill/process', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

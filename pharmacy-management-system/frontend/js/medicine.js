@@ -1,4 +1,4 @@
-// medicine.js - Instant Inline Editing (No Popups)
+// medicine.js - Instant Inline Editing (Fixed for 8 Columns)
 var API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 let globalMedicines = []; 
 let editingId = null; // Track karne ke liye ki kaunsi row edit ho rahi hai
@@ -28,29 +28,49 @@ async function fetchMedicines() {
     }
 }
 
-// 2. Table Render Function (Inline Logic)
+// 2. Table Render Function (Inline Edit Logic with Status Column)
 function renderTable() {
     const tbody = document.getElementById('medicineTableBody');
     if (!tbody) return;
     
     tbody.innerHTML = '';
     
+    if (globalMedicines.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">No medicines found.</td></tr>';
+        return;
+    }
+    
     globalMedicines.forEach((med, index) => {
         const isEditing = med._id === editingId;
         const tr = document.createElement('tr');
+        
+        // Status Calculate karna
+        let statusText = 'Active';
+        let statusColor = 'green'; 
+        const today = new Date();
+        const expiry = new Date(med.expiryDate);
+        
+        if (med.quantity <= 0) {
+            statusText = 'Out of Stock';
+            statusColor = 'red';
+        } else if (expiry < today) {
+            statusText = 'Expired';
+            statusColor = 'red';
+        }
 
         if (isEditing) {
-            // EDIT MODE: Input fields dikhao
+            // EDIT MODE: Chhote input fields dikhao
             tr.innerHTML = `
                 <td>${index + 1}</td>
-                <td><input type="text" id="editName-${med._id}" class="form-control form-control-sm" value="${med.name}" disabled></td>
+                <td><input type="text" class="form-control form-control-sm" value="${med.name}" disabled style="width: 100px;"></td>
                 <td>${med.company || '-'}</td>
-                <td><input type="number" id="editPrice-${med._id}" class="form-control form-control-sm" value="${med.price}"></td>
-                <td><input type="number" id="editQty-${med._id}" class="form-control form-control-sm" value="${med.quantity}"></td>
-                <td>${new Date(med.expiryDate).toLocaleDateString()}</td>
+                <td><input type="number" id="editPrice-${med._id}" class="form-control form-control-sm" value="${med.price}" style="width: 70px;"></td>
+                <td><input type="number" id="editQty-${med._id}" class="form-control form-control-sm" value="${med.quantity}" style="width: 70px;"></td>
+                <td>${expiry.toLocaleDateString()}</td>
+                <td style="color: ${statusColor}; font-weight: bold;">${statusText}</td>
                 <td>
-                    <button onclick="saveInlineEdit('${med._id}')" class="btn btn-sm btn-success">Save</button>
-                    <button onclick="cancelEdit()" class="btn btn-sm btn-secondary">Cancel</button>
+                    <button onclick="saveInlineEdit('${med._id}')" class="btn btn-sm btn-success" title="Save"><i class="fas fa-check"></i></button>
+                    <button onclick="cancelEdit()" class="btn btn-sm btn-secondary" title="Cancel"><i class="fas fa-times"></i></button>
                 </td>
             `;
         } else {
@@ -60,11 +80,12 @@ function renderTable() {
                 <td><strong>${med.name}</strong></td>
                 <td>${med.company || '-'}</td>
                 <td>₹${med.price}</td>
-                <td><span class="badge ${med.quantity < 10 ? 'bg-danger' : 'bg-success'}">${med.quantity}</span></td>
-                <td>${new Date(med.expiryDate).toLocaleDateString()}</td>
+                <td>${med.quantity}</td>
+                <td>${expiry.toLocaleDateString()}</td>
+                <td style="color: ${statusColor};">${statusText}</td>
                 <td>
-                    <button onclick="startEdit('${med._id}')" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i> Edit</button>
-                    <button onclick="deleteMedicine('${med._id}')" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                    <button onclick="startEdit('${med._id}')" class="btn btn-sm btn-primary" title="Edit" style="background: none; border: none; color: #4864e4; font-size: 16px; margin-right: 5px;"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteMedicine('${med._id}')" class="btn btn-sm btn-danger" title="Delete" style="background: none; border: none; color: black; font-size: 16px;"><i class="fas fa-trash"></i></button>
                 </td>
             `;
         }
@@ -72,16 +93,16 @@ function renderTable() {
     });
 }
 
-// --- Inline Actions ---
+// --- Inline Edit Actions ---
 
 window.startEdit = function(id) {
     editingId = id;
-    renderTable();
+    renderTable(); // Table ko edit mode mein reload karo
 };
 
 window.cancelEdit = function() {
     editingId = null;
-    renderTable();
+    renderTable(); // Table ko normal mode mein wapas laao
 };
 
 window.saveInlineEdit = async function(id) {
@@ -96,18 +117,27 @@ window.saveInlineEdit = async function(id) {
         });
 
         if (response.ok) {
-            editingId = null;
-            fetchMedicines(); // Refresh data
-            localStorage.setItem('medicineUpdated', Date.now().toString());
+            editingId = null; // Edit mode band karo
+            fetchMedicines(); // Naya data cloud se fetch karo
+            localStorage.setItem('medicineUpdated', Date.now().toString()); // Dashboard update trigger karo
+        } else {
+            alert('Failed to update medicine.');
         }
     } catch (error) {
-        alert('Update failed');
+        console.error('Update error:', error);
+        alert('Server error while updating.');
     }
 };
 
-// Add/Delete functions (Purana logic same rahega)
+// --- Add & Delete Functions (Purana logic) ---
+
 async function addMedicine(e) {
     e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+    submitBtn.disabled = true;
+
     const medicineData = {
         name: document.getElementById('name').value,
         company: document.getElementById('company').value,
@@ -115,18 +145,35 @@ async function addMedicine(e) {
         quantity: Number(document.getElementById('quantity').value),
         expiryDate: document.getElementById('expiryDate').value
     };
-    const response = await fetch(`${API_BASE_URL}/api/medicines`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(medicineData)
-    });
-    if (response.ok) {
-        document.getElementById('addMedicineForm').reset();
-        fetchMedicines();
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/medicines`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(medicineData)
+        });
+        
+        if (response.ok) {
+            document.getElementById('addMedicineForm').reset();
+            localStorage.setItem('medicineAdded', Date.now().toString());
+            alert("Medicine added successfully!");
+        }
+    } catch (error) {
+        console.error("Add error:", error);
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
     }
 }
 
 async function deleteMedicine(id) {
-    if (!confirm('Delete this medicine?')) return;
-    const response = await fetch(`${API_BASE_URL}/api/medicines/${id}`, { method: 'DELETE' });
-    if (response.ok) fetchMedicines();
+    if (!confirm('Are you sure you want to delete this medicine?')) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/medicines/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+            localStorage.setItem('medicineDeleted', Date.now().toString());
+            fetchMedicines();
+        }
+    } catch (error) {
+        console.error("Delete error:", error);
+    }
 }

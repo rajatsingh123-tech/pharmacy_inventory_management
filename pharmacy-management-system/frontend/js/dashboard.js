@@ -1,5 +1,6 @@
-// dashboard.js - Full Integrated Version with Recent Sales Table
+// dashboard.js - Full Integrated Version with Chart & Sales
 var BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
+let stockChartInstance = null; // Chart memory ke liye
 
 // 1. Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -11,11 +12,9 @@ document.addEventListener('DOMContentLoaded', function() {
             loadDashboardStats();
         });
 
-        // Setup Cross-tab update listener
         window.addEventListener('storage', function(event) {
             const updates = ['medicineAdded', 'medicineUpdated', 'medicineDeleted', 'dashboardNeedsUpdate', 'billProcessed'];
             if (updates.includes(event.key)) {
-                console.log('🔄 Remote change detected, refreshing dashboard...');
                 loadDashboardStats();
             }
         });
@@ -46,23 +45,22 @@ async function loadDashboardStats() {
         if (contentType && contentType.includes('application/json')) {
             data = await response.json();
         } else {
-            const text = await response.text();
-            data = JSON.parse(text);
+            data = JSON.parse(await response.text());
         }
         
         const medicinesArray = Array.isArray(data) ? data : (data.medicines || data.data || []);
         
         updateDashboardUI(medicinesArray);
-        updateSalesStats(); // This handles both top stats AND the recent sales table
+        updateSalesStats(); 
     } catch (error) {
         console.error('❌ Stats Error:', error);
-        useDemoDataForDashboard();
+        updateSalesStats(); 
     }
 }
 
 // 4. Update UI Elements
 function updateDashboardUI(medicines) {
-    if (!medicines || medicines.length === 0) console.warn("⚠️ No medicines data");
+    if (!medicines || medicines.length === 0) return;
 
     const today = new Date();
     const thirtyDaysLater = new Date(today);
@@ -85,6 +83,8 @@ function updateDashboardUI(medicines) {
         else if (expiry <= thirtyDaysLater) stats.expiringSoon++;
     });
 
+    const inStockCount = medicines.filter(m => parseInt(m.quantity || 0) >= 10).length;
+
     const elements = {
         'totalMedicines': stats.totalMedicines,
         'totalStock': stats.totalStock,
@@ -93,43 +93,63 @@ function updateDashboardUI(medicines) {
         'expiringSoon': stats.expiringSoon,
         'lowStock': stats.lowStock,
         'outOfStock': stats.outOfStock,
-        'inStockCount': medicines.filter(m => parseInt(m.quantity || 0) >= 10).length,
+        'inStockCount': inStockCount,
         'lowStockCount': stats.lowStock,
         'emptyStockCount': stats.outOfStock
     };
 
     for (const [id, value] of Object.entries(elements)) {
         const el = document.getElementById(id);
-        if (el) {
-            let start = 0;
-            const end = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g,"")) : value;
-            
-            if(!isNaN(end) && end > 0 && id !== 'totalStockValue') {
-                const duration = 1000;
-                let stepTime = Math.abs(Math.floor(duration / end));
-                if (stepTime < 10) stepTime = 10;
-                let stepJump = Math.ceil(end / (duration / stepTime));
+        if (el) el.textContent = value;
+    }
+    
+    // Yahan hum nayi Chart function call kar rahe hain
+    updateStockChart(inStockCount, stats.lowStock, stats.outOfStock);
+    
+    updateRecentMedicinesTable(medicines.slice(-5).reverse());
+}
 
-                const timer = setInterval(() => {
-                    start += stepJump;
-                    if (start >= end) { clearInterval(timer); el.textContent = value; } 
-                    else { el.textContent = start; }
-                }, stepTime);
-            } else {
-                el.textContent = value;
+// NAYA FUNCTION: Stock Distribution Chart Banane Ke Liye
+function updateStockChart(inStock, lowStock, outOfStock) {
+    const ctx = document.getElementById('stockChart');
+    if (!ctx) return;
+    
+    // Agar Chart.js library load nahi hui toh error roko
+    if (typeof Chart === 'undefined') return;
+
+    // Purana chart destroy karo taaki naya upar overlap na ho
+    if (stockChartInstance) {
+        stockChartInstance.destroy();
+    }
+
+    // Naya gol chart (Doughnut) draw karo
+    stockChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['In Stock (Good)', 'Low Stock (<10)', 'Out of Stock (0)'],
+            datasets: [{
+                data: [inStock, lowStock, outOfStock],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'], // Green, Yellow, Red
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
             }
         }
-    }
-    updateRecentMedicinesTable(medicines.slice(-5).reverse());
+    });
 }
 
 // 5. Update Sales Stats & Recent Sales Table
 function updateSalesStats() {
     try {
-        const billHistory = JSON.parse(localStorage.getItem('billHistory') || '[]');
+        const billHistoryStr = localStorage.getItem('billHistory');
+        const billHistory = billHistoryStr ? JSON.parse(billHistoryStr) : [];
         const todayStr = new Date().toDateString();
 
-        // 1. Update Top Summary Cards
         const todaySales = billHistory.filter(bill => new Date(bill.date).toDateString() === todayStr);
         const todaySalesCount = todaySales.length;
         const todaySalesAmount = todaySales.reduce((sum, bill) => sum + (bill.total || 0), 0);
@@ -140,61 +160,45 @@ function updateSalesStats() {
         if(salesCountEl) salesCountEl.textContent = todaySalesCount;
         if(salesAmtEl) salesAmtEl.textContent = '₹' + todaySalesAmount.toFixed(2) + ' total';
 
-        // 2. Generate Bottom Table HTML
         updateRecentSalesTable(billHistory);
-    } catch (error) {
-        console.error("Sales Calculation Error:", error);
-    }
+    } catch (error) { console.error("Sales Calculation Error:", error); }
 }
 
-// NAYA FUNCTION: Recent Sales ka Table Banane ke liye
+// 6. Recent Sales Table Generation
 function updateRecentSalesTable(billHistory) {
-    const container = document.getElementById('recentSales');
-    if (!container) return;
+    try {
+        const container = document.getElementById('recentSales');
+        if (!container) return;
 
-    if (!billHistory || billHistory.length === 0) {
-        container.innerHTML = '<p class="text-muted p-3">No recent sales data available</p>';
-        return;
-    }
+        if (!billHistory || billHistory.length === 0) {
+            container.innerHTML = '<p class="text-muted p-3">No recent sales data available</p>';
+            return;
+        }
 
-    // Top 5 bills nikal rahe hain
-    const recentBills = billHistory.slice(0, 5);
-    
-    let html = `
-        <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>Bill No</th>
-                        <th>Customer</th>
-                        <th>Amount</th>
-                        <th>Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-    
-    recentBills.forEach(bill => {
-        // Time format: 02:30 PM
-        const time = new Date(bill.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        const customerName = bill.customer && bill.customer.name ? bill.customer.name : 'Walk-in Customer';
-        const totalAmount = bill.total ? bill.total.toFixed(2) : '0.00';
+        const recentBills = billHistory.slice(0, 5);
+        let html = `<div class="table-responsive"><table class="table table-sm table-hover mb-0">
+                    <thead><tr><th>Bill No</th><th>Customer</th><th>Amount</th><th>Time</th></tr></thead><tbody>`;
         
-        html += `
-            <tr>
+        recentBills.forEach(bill => {
+            const dateObj = new Date(bill.date || Date.now());
+            const time = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const customerName = (bill.customer && bill.customer.name) ? bill.customer.name : 'Walk-in';
+            const totalAmount = bill.total ? parseFloat(bill.total).toFixed(2) : '0.00';
+            
+            html += `<tr>
                 <td><small class="text-muted">${bill.billNumber || '-'}</small></td>
                 <td><strong>${customerName}</strong></td>
                 <td><span style="color: #28a745; font-weight: bold;">₹${totalAmount}</span></td>
                 <td><span class="badge" style="background: #e9ecef; color: #495057;">${time}</span></td>
-            </tr>
-        `;
-    });
-    
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
+            </tr>`;
+        });
+        
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    } catch (e) { console.error("Table render error:", e); }
 }
 
-// 6. Recent Medicines Table Update
+// 7. Recent Medicines Table Update
 function updateRecentMedicinesTable(recentMeds) {
     const container = document.getElementById('recentMedicines');
     if (!container) return;
@@ -212,12 +216,6 @@ function updateRecentMedicinesTable(recentMeds) {
         </tr>`;
     });
     container.innerHTML = html + '</tbody></table>';
-}
-
-// 7. Demo Data Fallback
-function useDemoDataForDashboard() {
-    const demo = [{ name: 'Paracetamol', company: 'Cipla', price: 5, quantity: 150, expiryDate: '2025-12-31' }];
-    updateDashboardUI(demo);
 }
 
 window.loadDashboardStats = loadDashboardStats;

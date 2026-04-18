@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const nodemailer = require('nodemailer'); // NAYA: Email bhejne ke liye
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -35,30 +35,20 @@ const userSchema = new mongoose.Schema({
     username: { type: String, unique: true },
     email: { type: String, unique: true },
     password: { type: String },
-    role: { type: String, default: 'staff' }
+    role: { type: String, default: 'staff' },
+    // NAYA: OTP save karne ke liye
+    resetOtp: { type: String },
+    otpExpiry: { type: Date }
 });
 const User = mongoose.model('User', userSchema);
 
 const billSchema = new mongoose.Schema({
-    customer: {
-        name: { type: String, default: 'Walk-in Customer' },
-        phone: { type: String, default: '' }
-    },
-    items: [{
-        name: String,
-        price: Number,
-        quantity: Number,
-        total: Number
-    }],
-    subtotal: Number,
-    tax: Number,
-    discount: Number,
-    total: Number,
-    date: { type: Date, default: Date.now },
-    billNumber: String
+    customer: { name: { type: String, default: 'Walk-in Customer' }, phone: { type: String, default: '' } },
+    items: [{ name: String, price: Number, quantity: Number, total: Number }],
+    subtotal: Number, tax: Number, discount: Number, total: Number,
+    date: { type: Date, default: Date.now }, billNumber: String
 });
 const Bill = mongoose.model('Bill', billSchema);
-
 
 // ============ 4. API ROUTES ============
 
@@ -67,11 +57,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-    res.status(200).json({ 
-        status: 'healthy', 
-        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-        time: new Date().toISOString()
-    });
+    res.status(200).json({ status: 'healthy', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', time: new Date().toISOString() });
 });
 
 app.post('/api/login', async (req, res) => {
@@ -80,10 +66,7 @@ app.post('/api/login', async (req, res) => {
         const user = await User.findOne({ $or: [{ username }, { email: username }] });
         
         if (user && user.password === password) {
-            res.json({
-                success: true, message: 'Login successful!', token: 'auth-token-' + user._id,
-                user: { id: user._id, username: user.username, fullName: user.fullName }
-            });
+            res.json({ success: true, message: 'Login successful!', token: 'auth-token-' + user._id, user: { id: user._id, username: user.username, fullName: user.fullName } });
         } else {
             res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
@@ -100,100 +83,107 @@ app.post('/api/signup', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 NAYA: FORGOT PASSWORD ROUTE
+// 🔥 NAYA: OTP SEND ROUTE 🔥
 // ==========================================
 app.post('/api/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
-        
-        // 1. Check if user exists
         const user = await User.findOne({ email: email });
+        
         if (!user) {
-            return res.status(404).json({ success: false, message: 'No account found with this email.' });
+            return res.status(404).json({ success: false, message: 'Is email se koi account nahi mila.' });
         }
 
-        // 2. Generate new random password
-        const tempPassword = Math.random().toString(36).slice(-8); // 8 character ka password
-
-        // 3. Save new password to database
-        user.password = tempPassword;
+        // 6-digit OTP generate karo
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // OTP aur Expiry (15 mins) database me save karo
+        user.resetOtp = otp;
+        user.otpExpiry = Date.now() + 15 * 60 * 1000;
         await user.save();
 
-        // 4. Setup Email config
         const transporter = nodemailer.createTransport({
             service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER, // Render se aayega
-                pass: process.env.EMAIL_PASS  // Render se aayega
-            }
+            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
         });
 
-        // 5. Send Email
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: 'PharmaCare - Your Password Has Been Reset',
+            subject: 'PharmaCare - Password Reset OTP',
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
                     <h2 style="color: #4864e4;">PharmaCare Security</h2>
                     <p>Hello <strong>${user.fullName}</strong>,</p>
-                    <p>Your password has been successfully reset. Here is your new temporary login password:</p>
-                    <div style="background: #f4f4f4; padding: 10px; font-size: 24px; text-align: center; letter-spacing: 2px; font-weight: bold; color: #d9534f; border-radius: 5px;">
-                        ${tempPassword}
+                    <p>Aapne password reset karne ki request ki hai. Ye raha aapka 6-digit OTP (Ye 15 minute ke liye valid hai):</p>
+                    <div style="background: #f4f4f4; padding: 15px; font-size: 28px; text-align: center; letter-spacing: 5px; font-weight: bold; color: #4864e4; border-radius: 5px;">
+                        ${otp}
                     </div>
-                    <p style="margin-top: 20px;">Please login using this password. Make sure to keep it secure.</p>
-                    <p>Thank you,<br>PharmaCare Team</p>
+                    <p style="margin-top: 20px;">Agar ye request aapne nahi ki thi, toh is email ko ignore karein.</p>
                 </div>
             `
         };
 
         await transporter.sendMail(mailOptions);
-        res.json({ success: true, message: 'Temporary password sent to your email successfully!' });
+        res.json({ success: true, message: 'OTP aapke email par bhej diya gaya hai!' });
 
     } catch (error) {
-        console.error('Email sending error:', error);
-        res.status(500).json({ success: false, message: 'Failed to send email. Check server configuration.' });
+        console.error('OTP sending error:', error);
+        res.status(500).json({ success: false, message: 'Failed to send OTP.' });
+    }
+});
+
+// ==========================================
+// 🔥 NAYA: VERIFY OTP & RESET PASSWORD ROUTE 🔥
+// ==========================================
+app.post('/api/reset-password', async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        // User dhoondo jiska email aur OTP match kare, aur OTP expire na hua ho
+        const user = await User.findOne({ 
+            email: email, 
+            resetOtp: otp, 
+            otpExpiry: { $gt: Date.now() } // OTP expiry aage ki honi chahiye
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'Invalid ya Expired OTP!' });
+        }
+
+        // Naya password save karo aur OTP delete kar do
+        user.password = newPassword;
+        user.resetOtp = undefined;
+        user.otpExpiry = undefined;
+        await user.save();
+
+        res.json({ success: true, message: 'Aapka password successfully badal diya gaya hai! Ab login karein.' });
+
+    } catch (error) {
+        console.error('Password reset error:', error);
+        res.status(500).json({ success: false, message: 'Server error while resetting password.' });
     }
 });
 // ==========================================
 
 app.get('/api/bills', async (req, res) => {
-    try {
-        const bills = await Bill.find().sort({ date: -1 }); 
-        res.json(bills);
-    } catch (error) {
-        console.error('Fetch bills error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch bills from cloud' });
-    }
+    try { const bills = await Bill.find().sort({ date: -1 }); res.json(bills); } 
+    catch (error) { res.status(500).json({ success: false, message: 'Failed to fetch bills' }); }
 });
 
 app.post('/api/bills', async (req, res) => {
-    try {
-        const newBill = new Bill(req.body);
-        await newBill.save();
-        res.status(201).json({ success: true, message: 'Bill saved to MongoDB successfully!', bill: newBill });
-    } catch (error) {
-        console.error('Save bill error:', error);
-        res.status(500).json({ success: false, message: 'Failed to save bill to cloud' });
-    }
+    try { const newBill = new Bill(req.body); await newBill.save(); res.status(201).json({ success: true, bill: newBill }); } 
+    catch (error) { res.status(500).json({ success: false, message: 'Failed to save bill' }); }
 });
 
 try {
     const medicineRoutes = require('./routes/medicineRoutes');
     app.use('/api/medicines', medicineRoutes);
-    console.log('💊 Medicine routes integrated');
 } catch (e) {
-    console.log('⚠️ Medicine routes folder/file missing, using manual fallback');
-    app.get('/api/medicines', (req, res) => {
-        res.json({ success: true, medicines: [], message: 'Backend working, but routes file not found' });
-    });
+    app.get('/api/medicines', (req, res) => { res.json({ success: true, medicines: [] }); });
 }
 
-app.use((req, res) => {
-    res.status(404).json({ success: false, message: 'Route not found' });
-});
+app.use((req, res) => { res.status(404).json({ success: false, message: 'Route not found' }); });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`\n🚀 Server is blasting off on port ${PORT}`);
-});
+app.listen(PORT, () => { console.log(`\n🚀 Server is blasting off on port ${PORT}`); });

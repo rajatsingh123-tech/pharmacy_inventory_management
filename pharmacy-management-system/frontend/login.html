@@ -25,14 +25,17 @@
         .input-group { position: relative; }
         .input-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #667eea; }
         .input-group input { width: 100%; padding: 14px 14px 14px 45px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 15px; }
-        .btn-auth { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.3s; }
+        .btn-auth { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.3s; margin-bottom: 10px;}
         .btn-auth:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
         .message-box { margin-top: 20px; padding: 15px; border-radius: 10px; display: none; font-size: 14px; }
         .message-box.show { display: block; }
         .message-box.success { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
         .message-box.error { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
         .message-box.info { background: #cce5ff; color: #004085; border-left: 4px solid #007bff; }
-        .demo-credentials { margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #667eea; font-size: 14px; }
+        
+        /* OTP Section styling */
+        #otpSection { display: none; animation: fadeIn 0.5s ease; padding-top: 15px; border-top: 1px dashed #ccc;}
+        #otpSection.active { display: block; }
     </style>
 </head>
 <body>
@@ -46,7 +49,7 @@
         <div class="tab-buttons">
             <button class="tab-btn active" id="loginTab" onclick="switchTab('login')">Login</button>
             <button class="tab-btn" id="signupTab" onclick="switchTab('signup')">Sign Up</button>
-            <button class="tab-btn" id="forgotTab" onclick="switchTab('forgot')">Forgot</button>
+            <button class="tab-btn" id="forgotTab" onclick="switchTab('forgot')">Forgot Pass</button>
         </div>
         
         <div class="auth-form active" id="loginForm">
@@ -92,20 +95,32 @@
         </div>
 
         <div class="auth-form" id="forgotForm">
-            <form onsubmit="handleForgotPassword(event)">
+            <div id="emailSection">
                 <div class="form-group">
-                    <label>Email Address</label>
-                    <div class="input-group"><i class="fas fa-paper-plane"></i><input type="email" id="forgotEmail" placeholder="Registered Email" required></div>
+                    <label>Enter Registered Email</label>
+                    <div class="input-group"><i class="fas fa-paper-plane"></i><input type="email" id="forgotEmail" placeholder="e.g. user@gmail.com"></div>
                 </div>
-                <button type="submit" class="btn-auth" id="forgotBtn">Send Temp Password</button>
-            </form>
+                <button type="button" class="btn-auth" id="sendOtpBtn" onclick="requestOTP()">Send OTP</button>
+            </div>
+
+            <div id="otpSection">
+                <p style="text-align: center; color: #28a745; margin-bottom: 15px; font-weight: bold;">OTP sent to your email!</p>
+                <form onsubmit="resetPassword(event)">
+                    <div class="form-group">
+                        <label>Enter 6-digit OTP</label>
+                        <div class="input-group"><i class="fas fa-key"></i><input type="text" id="resetOtpCode" placeholder="XXXXXX" required></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Enter New Password</label>
+                        <div class="input-group"><i class="fas fa-lock"></i><input type="password" id="resetNewPassword" placeholder="New Password" required></div>
+                    </div>
+                    <button type="submit" class="btn-auth" id="resetPassBtn" style="background: #28a745;">Update Password</button>
+                    <button type="button" class="btn-auth" style="background: transparent; color: #666; border: 1px solid #ccc;" onclick="switchTab('login')">Cancel</button>
+                </form>
+            </div>
         </div>
 
         <div id="messageBox" class="message-box"></div>
-
-        <div class="demo-credentials">
-            <strong>Demo:</strong> admin / admin123
-        </div>
     </div>
 
     <script>
@@ -116,13 +131,20 @@
             document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
             document.getElementById(tab + 'Tab').classList.add('active');
             document.getElementById(tab + 'Form').classList.add('active');
+            
+            // Reset OTP section agar tab switch kiya
+            if(tab === 'forgot') {
+                document.getElementById('emailSection').style.display = 'block';
+                document.getElementById('otpSection').classList.remove('active');
+                document.getElementById('forgotEmail').value = '';
+            }
         }
 
         function showMsg(text, type) {
             const box = document.getElementById('messageBox');
             box.textContent = text;
             box.className = `message-box ${type} show`;
-            setTimeout(() => box.classList.remove('show'), 6000); // 6 seconds tak dikhega
+            setTimeout(() => box.classList.remove('show'), 5000); 
         }
 
         async function handleLogin(e) {
@@ -131,22 +153,14 @@
             btn.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: document.getElementById('loginUsername').value,
-                        password: document.getElementById('loginPassword').value
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: document.getElementById('loginUsername').value, password: document.getElementById('loginPassword').value })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    localStorage.setItem('isLoggedIn', 'true');
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    showMsg('✅ Login Success!', 'success');
-                    setTimeout(() => window.location.href = 'dashboard.html', 1000);
-                } else {
-                    showMsg('❌ ' + data.message, 'error');
-                }
+                    localStorage.setItem('isLoggedIn', 'true'); localStorage.setItem('user', JSON.stringify(data.user));
+                    showMsg('✅ Login Success!', 'success'); setTimeout(() => window.location.href = 'dashboard.html', 1000);
+                } else { showMsg('❌ ' + data.message, 'error'); }
             } catch (err) { showMsg('❌ Server Error', 'error'); }
             btn.disabled = false;
         }
@@ -157,62 +171,82 @@
             btn.disabled = true;
             try {
                 const res = await fetch(`${API_URL}/signup`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        fullName: document.getElementById('signupFullName').value,
-                        username: document.getElementById('signupUsername').value,
-                        email: document.getElementById('signupEmail').value,
-                        password: document.getElementById('signupPassword').value
+                        fullName: document.getElementById('signupFullName').value, username: document.getElementById('signupUsername').value,
+                        email: document.getElementById('signupEmail').value, password: document.getElementById('signupPassword').value
                     })
                 });
                 const data = await res.json();
-                if (data.success) {
-                    showMsg('✅ Account Created! Please Login.', 'success');
-                    setTimeout(() => switchTab('login'), 2000);
-                } else { showMsg('❌ ' + data.message, 'error'); }
+                if (data.success) { showMsg('✅ Account Created! Please Login.', 'success'); setTimeout(() => switchTab('login'), 2000); } 
+                else { showMsg('❌ ' + data.message, 'error'); }
             } catch (err) { showMsg('❌ Server Error', 'error'); }
             btn.disabled = false;
         }
 
         // ==========================================
-        // 🔥 ASLI FORGOT PASSWORD API CONNECTION 🔥
+        // 🔥 NAYA: OTP REQUEST FUNCTION
         // ==========================================
-        async function handleForgotPassword(e) {
-            e.preventDefault();
-            
+        async function requestOTP() {
             const email = document.getElementById('forgotEmail').value;
-            const btn = document.getElementById('forgotBtn');
-            
+            if(!email) return showMsg('❌ Please enter your email first', 'error');
+
+            const btn = document.getElementById('sendOtpBtn');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending Email...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending OTP...';
             btn.disabled = true;
-            showMsg('⏳ Email bhej rahe hain... kripya wait karein.', 'info');
+            showMsg('⏳ OTP bhej rahe hain... wait karein.', 'info');
 
             try {
-                // Direct call to /forgot-password route on your Render backend
                 const res = await fetch(`${API_URL}/forgot-password`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: email })
                 });
-                
                 const data = await res.json();
                 
                 if (data.success) {
                     showMsg('✅ ' + data.message, 'success');
-                    document.getElementById('forgotEmail').value = ''; // Input saaf kar do
-                    setTimeout(() => switchTab('login'), 3000); // 3 second baad login pe le jao
+                    // Email input chupa do aur OTP section dikhao
+                    document.getElementById('emailSection').style.display = 'none';
+                    document.getElementById('otpSection').classList.add('active');
                 } else { 
                     showMsg('❌ ' + data.message, 'error'); 
                 }
-            } catch (err) { 
-                console.error("Forgot Pass Error:", err);
-                showMsg('❌ Server se connect nahi ho paya.', 'error'); 
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
+            } catch (err) { showMsg('❌ Server connection error.', 'error'); } 
+            finally { btn.innerHTML = originalText; btn.disabled = false; }
+        }
+
+        // ==========================================
+        // 🔥 NAYA: RESET PASSWORD FUNCTION (Using OTP)
+        // ==========================================
+        async function resetPassword(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('forgotEmail').value;
+            const otp = document.getElementById('resetOtpCode').value;
+            const newPassword = document.getElementById('resetNewPassword').value;
+            
+            const btn = document.getElementById('resetPassBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_URL}/reset-password`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, otp: otp, newPassword: newPassword })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    showMsg('✅ ' + data.message, 'success');
+                    document.getElementById('resetOtpCode').value = '';
+                    document.getElementById('resetNewPassword').value = '';
+                    setTimeout(() => switchTab('login'), 3000); 
+                } else { 
+                    showMsg('❌ ' + data.message, 'error'); 
+                }
+            } catch (err) { showMsg('❌ Server error.', 'error'); } 
+            finally { btn.innerHTML = 'Update Password'; btn.disabled = false; }
         }
     </script>
 </body>

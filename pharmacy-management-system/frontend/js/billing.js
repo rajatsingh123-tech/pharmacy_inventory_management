@@ -257,7 +257,7 @@ async function processBill() {
         const customerName = document.getElementById('customerName')?.value || 'Walk-in Customer';
         const customerPhone = document.getElementById('customerPhone')?.value || '';
         
-        // 🔥 NAYA KAAM: LocalStorage se current user nikalna
+        // 🔥 LocalStorage se current user nikalna aur uska naam save karna
         const userStr = localStorage.getItem('user');
         const currentUser = userStr ? JSON.parse(userStr) : null;
         const issuedBy = currentUser ? currentUser.username : 'Unknown';
@@ -268,7 +268,7 @@ async function processBill() {
             subtotal: subtotal, tax: tax, discount: discount, total: total,
             date: new Date().toISOString(),
             billNumber: 'BILL-' + Date.now(),
-            issuedBy: issuedBy // 🔥 Thappa laga diya!
+            issuedBy: issuedBy // 🔥 Thappa lag gaya yahan par!
         };
         
         // 1. Update medicine stock in backend
@@ -297,7 +297,7 @@ async function processBill() {
         updateBillTable(); updateBillSummary(); localStorage.removeItem('currentCart');
         loadMedicinesForBilling(); triggerDashboardUpdate();
         
-        showMessage('✅ Bill processed successfully! Receipt generated.', 'success');
+        showMessage(`✅ Bill processed successfully by ${issuedBy}!`, 'success');
         
     } catch (error) {
         showMessage('❌ Error processing bill: ' + error.message, 'error');
@@ -338,7 +338,7 @@ function generateReceipt(billData) {
     receiptContainer.className = 'receipt-container';
     receiptContainer.style.cssText = `background: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 20px auto; box-shadow: 0 0 20px rgba(0,0,0,0.1); font-family: 'Courier New', monospace;`;
     
-    // Receipt me bhi user ka naam dikhao
+    // Receipt me user ka naam dikhao
     const cashierName = billData.issuedBy !== 'Unknown' ? billData.issuedBy : 'Admin';
 
     receiptContainer.innerHTML = `

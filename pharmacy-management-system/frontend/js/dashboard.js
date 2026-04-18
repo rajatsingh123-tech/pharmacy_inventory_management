@@ -124,11 +124,11 @@ function updateStockChart(inStock, lowStock, outOfStock) {
 }
 
 // ==========================================
-// 🔥 NAYA: Role-Based Sales Fetching 🔥
+// 🔥 Role-Based Sales Fetching & UI 🔥
 // ==========================================
 async function updateSalesStats() {
     try {
-        // Current user ko check karo ki kon login hai
+        // Current user check
         const userStr = localStorage.getItem('user');
         const currentUser = userStr ? JSON.parse(userStr) : null;
         
@@ -140,22 +140,31 @@ async function updateSalesStats() {
             role = currentUser.role || 'staff';
         }
 
-        // URL mein role aur username pass karo
+        // Main Page Header Update (Admin vs Staff)
+        const mainHeader = document.querySelector('.main-content h2');
+        if (mainHeader) {
+            if (role === 'admin') {
+                mainHeader.innerHTML = '<i class="fas fa-tachometer-alt"></i> Admin Dashboard <span style="font-size: 0.5em; background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px; font-family: sans-serif;">GLOBAL</span>';
+            } else {
+                mainHeader.innerHTML = `<i class="fas fa-user"></i> Staff Dashboard <span style="font-size: 0.5em; background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; vertical-align: middle; margin-left: 10px; font-family: sans-serif;">${username}</span>`;
+            }
+        }
+
+        // URL mein role pass karke API call
         const fetchUrl = `${BASE_URL}/api/bills?username=${username}&role=${role}`;
-        
         const response = await fetch(fetchUrl);
         let billHistory = [];
         
         if (response.ok) {
             billHistory = await response.json(); 
             
-            // Dashboard par header change karo taaki user ko pata chale wo kiska data dekh raha hai
+            // Recent Sales Table Header Update
             const salesHeader = document.querySelector('#recentSales')?.parentElement?.querySelector('h3');
             if(salesHeader) {
                 if(role === 'admin') {
-                    salesHeader.innerHTML = '<i class="fas fa-chart-line"></i> All Pharmacy Sales (Admin)';
+                    salesHeader.innerHTML = '<i class="fas fa-chart-line"></i> Global Sales (All Staff)';
                 } else {
-                    salesHeader.innerHTML = `<i class="fas fa-chart-line"></i> My Sales (${username})`;
+                    salesHeader.innerHTML = `<i class="fas fa-chart-line"></i> My Recent Sales`;
                 }
             }
 
@@ -165,6 +174,7 @@ async function updateSalesStats() {
             billHistory = localBills ? JSON.parse(localBills) : [];
         }
 
+        // Aaj ki sales nikalo
         const todayStr = new Date().toDateString();
         const todaySales = billHistory.filter(bill => new Date(bill.date).toDateString() === todayStr);
         const todaySalesCount = todaySales.length;
@@ -174,7 +184,7 @@ async function updateSalesStats() {
         const salesAmtEl = document.getElementById('salesAmount');
 
         if(salesCountEl) salesCountEl.textContent = todaySalesCount;
-        if(salesAmtEl) salesAmtEl.textContent = '₹' + todaySalesAmount.toFixed(2) + ' total';
+        if(salesAmtEl) salesAmtEl.textContent = '₹' + todaySalesAmount.toFixed(2);
 
         updateRecentSalesTable(billHistory);
     } catch (error) { console.error("Sales Calculation Error:", error); }
@@ -199,14 +209,19 @@ function updateRecentSalesTable(billHistory) {
             const time = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             const customerName = (bill.customer && bill.customer.name) ? bill.customer.name : 'Walk-in';
             const totalAmount = bill.total ? parseFloat(bill.total).toFixed(2) : '0.00';
-            const issuedBy = bill.issuedBy || 'Unknown'; // NAYA: Table me bill bananey wale ka naam
+            const issuedBy = bill.issuedBy || 'Unknown'; 
             
+            // Highlight Admin or Current User
+            const badgeStyle = (issuedBy.toLowerCase() === 'admin') 
+                ? 'background: #6a5acd; color: white;' 
+                : 'background: #e9ecef; color: #495057; border: 1px solid #ccc;';
+
             html += `<tr>
                 <td><small class="text-muted">${bill.billNumber || '-'}</small></td>
                 <td><strong>${customerName}</strong></td>
-                <td><span class="badge" style="background:#e0e0e0; color:black;">${issuedBy}</span></td>
+                <td><span class="badge" style="${badgeStyle}">${issuedBy}</span></td>
                 <td><span style="color: #28a745; font-weight: bold;">₹${totalAmount}</span></td>
-                <td><span class="badge" style="background: #e9ecef; color: #495057;">${time}</span></td>
+                <td><span class="badge" style="background: transparent; color: #6c757d;">${time}</span></td>
             </tr>`;
         });
         
@@ -228,7 +243,7 @@ function updateRecentMedicinesTable(recentMeds) {
     recentMeds.forEach(med => {
         html += `<tr>
             <td><strong>${med.name}</strong></td>
-            <td><span class="badge ${med.quantity < 10 ? 'bg-warning' : 'bg-success'}">${med.quantity || 0} in stock</span></td>
+            <td><span class="badge ${med.quantity < 10 ? 'bg-warning text-dark' : 'bg-success'}">${med.quantity || 0} in stock</span></td>
         </tr>`;
     });
     container.innerHTML = html + '</tbody></table>';

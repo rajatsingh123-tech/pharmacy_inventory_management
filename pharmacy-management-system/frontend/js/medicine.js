@@ -1,140 +1,132 @@
-// medicine.js - Pharmacy Management System (Full Render Version)
-var BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
-let medicineData = [];
+// medicine.js - Instant Inline Editing (No Popups)
+var API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
+let globalMedicines = []; 
+let editingId = null; // Track karne ke liye ki kaunsi row edit ho rahi hai
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ Medicine.js Full Version Loaded');
+    console.log('💊 Medicine System Loaded (Inline Edit Mode)');
     
-    if (document.getElementById('medicinesContainer')) {
-        loadMedicines();
+    const addForm = document.getElementById('addMedicineForm');
+    if (addForm) {
+        addForm.addEventListener('submit', addMedicine);
     }
     
-    const medicineForm = document.getElementById('medicineForm');
-    if (medicineForm) {
-        medicineForm.addEventListener('submit', handleMedicineFormSubmit);
+    if (window.location.pathname.includes('view-medicines.html')) {
+        fetchMedicines();
     }
-    
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', searchMedicines);
-    }
-    
-    addStyles();
 });
 
-// 1. Load All Medicines
-async function loadMedicines() {
-    const container = document.getElementById('medicinesContainer');
+// 1. Fetch Data from Cloud
+async function fetchMedicines() {
     try {
-        if (container) container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
-        
-        const response = await fetch(`${BASE_URL}/api/medicines`);
-        if (!response.ok) throw new Error('API failed');
-        
-        const data = await response.json();
-        medicineData = Array.isArray(data) ? data : (data.medicines || []);
-        
-        if (container) displayMedicines(medicineData);
-        
-        // Update dashboard if visible
-        if (window.location.pathname.includes('dashboard.html')) {
-            if (window.updateDashboardUI) window.updateDashboardUI(medicineData);
-        }
+        const response = await fetch(`${API_BASE_URL}/api/medicines`);
+        let data = await response.json();
+        globalMedicines = Array.isArray(data) ? data : (data.medicines || data.data || []);
+        renderTable();
     } catch (error) {
-        console.error('Load Error:', error);
-        if (container) container.innerHTML = '<div class="alert alert-danger">Failed to Load Medicines</div>';
+        console.error('Fetch error:', error);
     }
 }
 
-// 2. Form Submission
-async function handleMedicineFormSubmit(e) {
-    e.preventDefault();
-    const btn = e.target.querySelector('button[type="submit"]');
+// 2. Table Render Function (Inline Logic)
+function renderTable() {
+    const tbody = document.getElementById('medicineTableBody');
+    if (!tbody) return;
     
-    const medicine = {
-        name: document.getElementById('name').value.trim(),
-        company: document.getElementById('company').value.trim(),
-        price: parseFloat(document.getElementById('price').value),
-        quantity: parseInt(document.getElementById('quantity').value),
-        expiryDate: document.getElementById('expiryDate').value
-    };
+    tbody.innerHTML = '';
+    
+    globalMedicines.forEach((med, index) => {
+        const isEditing = med._id === editingId;
+        const tr = document.createElement('tr');
+
+        if (isEditing) {
+            // EDIT MODE: Input fields dikhao
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td><input type="text" id="editName-${med._id}" class="form-control form-control-sm" value="${med.name}" disabled></td>
+                <td>${med.company || '-'}</td>
+                <td><input type="number" id="editPrice-${med._id}" class="form-control form-control-sm" value="${med.price}"></td>
+                <td><input type="number" id="editQty-${med._id}" class="form-control form-control-sm" value="${med.quantity}"></td>
+                <td>${new Date(med.expiryDate).toLocaleDateString()}</td>
+                <td>
+                    <button onclick="saveInlineEdit('${med._id}')" class="btn btn-sm btn-success">Save</button>
+                    <button onclick="cancelEdit()" class="btn btn-sm btn-secondary">Cancel</button>
+                </td>
+            `;
+        } else {
+            // VIEW MODE: Normal text dikhao
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td><strong>${med.name}</strong></td>
+                <td>${med.company || '-'}</td>
+                <td>₹${med.price}</td>
+                <td><span class="badge ${med.quantity < 10 ? 'bg-danger' : 'bg-success'}">${med.quantity}</span></td>
+                <td>${new Date(med.expiryDate).toLocaleDateString()}</td>
+                <td>
+                    <button onclick="startEdit('${med._id}')" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i> Edit</button>
+                    <button onclick="deleteMedicine('${med._id}')" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                </td>
+            `;
+        }
+        tbody.appendChild(tr);
+    });
+}
+
+// --- Inline Actions ---
+
+window.startEdit = function(id) {
+    editingId = id;
+    renderTable();
+};
+
+window.cancelEdit = function() {
+    editingId = null;
+    renderTable();
+};
+
+window.saveInlineEdit = async function(id) {
+    const newPrice = document.getElementById(`editPrice-${id}`).value;
+    const newQty = document.getElementById(`editQty-${id}`).value;
 
     try {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        
-        const response = await fetch(`${BASE_URL}/api/medicines`, {
-            method: 'POST',
+        const response = await fetch(`${API_BASE_URL}/api/medicines/${id}`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(medicine)
+            body: JSON.stringify({ price: Number(newPrice), quantity: Number(newQty) })
         });
 
         if (response.ok) {
-            alert('✅ Medicine added successfully!');
-            localStorage.setItem('medicineAdded', Date.now());
-            window.location.href = 'view-medicines.html';
+            editingId = null;
+            fetchMedicines(); // Refresh data
+            localStorage.setItem('medicineUpdated', Date.now().toString());
         }
     } catch (error) {
-        alert('❌ Server Error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Save Medicine';
+        alert('Update failed');
+    }
+};
+
+// Add/Delete functions (Purana logic same rahega)
+async function addMedicine(e) {
+    e.preventDefault();
+    const medicineData = {
+        name: document.getElementById('name').value,
+        company: document.getElementById('company').value,
+        price: Number(document.getElementById('price').value),
+        quantity: Number(document.getElementById('quantity').value),
+        expiryDate: document.getElementById('expiryDate').value
+    };
+    const response = await fetch(`${API_BASE_URL}/api/medicines`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(medicineData)
+    });
+    if (response.ok) {
+        document.getElementById('addMedicineForm').reset();
+        fetchMedicines();
     }
 }
 
-// 3. Display Medicines Table
-function displayMedicines(medicines) {
-    const container = document.getElementById('medicinesContainer');
-    if (!container) return;
-
-    let html = `<div class="table-responsive"><table class="table table-hover">
-        <thead><tr><th>#</th><th>Name</th><th>Company</th><th>Price</th><th>Qty</th><th>Expiry</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody>`;
-
-    medicines.forEach((m, i) => {
-        const isLow = m.quantity < 10;
-        const isExpired = new Date(m.expiryDate) < new Date();
-        
-        html += `<tr class="${isExpired ? 'table-danger' : isLow ? 'table-warning' : ''}">
-            <td>${i + 1}</td>
-            <td><strong>${m.name}</strong></td>
-            <td>${m.company}</td>
-            <td>₹${m.price}</td>
-            <td>${m.quantity}</td>
-            <td>${new Date(m.expiryDate).toLocaleDateString()}</td>
-            <td><span class="badge ${isExpired ? 'bg-danger' : 'bg-success'}">${isExpired ? 'Expired' : 'Active'}</span></td>
-            <td>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteMedicine('${m._id}')"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>`;
-    });
-    container.innerHTML = html + '</tbody></table></div>';
-}
-
-// 4. Delete Medicine
 async function deleteMedicine(id) {
-    if (!confirm('Are you sure?')) return;
-    try {
-        const response = await fetch(`${BASE_URL}/api/medicines/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            localStorage.setItem('medicineDeleted', Date.now());
-            loadMedicines();
-        }
-    } catch (e) { alert('Delete failed'); }
+    if (!confirm('Delete this medicine?')) return;
+    const response = await fetch(`${API_BASE_URL}/api/medicines/${id}`, { method: 'DELETE' });
+    if (response.ok) fetchMedicines();
 }
-
-// 5. Search & Styles
-function searchMedicines() {
-    const term = document.getElementById('searchInput').value.toLowerCase();
-    const filtered = medicineData.filter(m => m.name.toLowerCase().includes(term));
-    displayMedicines(filtered);
-}
-
-function addStyles() {
-    const style = document.createElement('style');
-    style.textContent = `.table-hover tbody tr:hover { background-color: rgba(0,0,0,0.05); }`;
-    document.head.appendChild(style);
-}
-
-window.deleteMedicine = deleteMedicine;
-window.loadMedicines = loadMedicines;

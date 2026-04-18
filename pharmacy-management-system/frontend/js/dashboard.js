@@ -1,9 +1,9 @@
-// dashboard.js - Full Integrated Version with Cloud Bills
+// dashboard.js - Full Integrated Version with Role-Based Cloud Bills
 var BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 let stockChartInstance = null; 
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🏥 Pharmacy Dashboard - Full System Loaded');
+    console.log('🏥 Pharmacy Dashboard - Role Based System Loaded');
     
     if (window.location.pathname.includes('dashboard.html')) {
         checkServerHealth().then(isHealthy => {
@@ -123,14 +123,42 @@ function updateStockChart(inStock, lowStock, outOfStock) {
     });
 }
 
-// NAYA: Ab ye function MongoDB Cloud se Data Mangwayega
+// ==========================================
+// 🔥 NAYA: Role-Based Sales Fetching 🔥
+// ==========================================
 async function updateSalesStats() {
     try {
-        const response = await fetch(`${BASE_URL}/api/bills`);
+        // Current user ko check karo ki kon login hai
+        const userStr = localStorage.getItem('user');
+        const currentUser = userStr ? JSON.parse(userStr) : null;
+        
+        let username = '';
+        let role = 'staff';
+
+        if(currentUser) {
+            username = currentUser.username || '';
+            role = currentUser.role || 'staff';
+        }
+
+        // URL mein role aur username pass karo
+        const fetchUrl = `${BASE_URL}/api/bills?username=${username}&role=${role}`;
+        
+        const response = await fetch(fetchUrl);
         let billHistory = [];
         
         if (response.ok) {
-            billHistory = await response.json(); // Cloud se data aagaya!
+            billHistory = await response.json(); 
+            
+            // Dashboard par header change karo taaki user ko pata chale wo kiska data dekh raha hai
+            const salesHeader = document.querySelector('#recentSales')?.parentElement?.querySelector('h3');
+            if(salesHeader) {
+                if(role === 'admin') {
+                    salesHeader.innerHTML = '<i class="fas fa-chart-line"></i> All Pharmacy Sales (Admin)';
+                } else {
+                    salesHeader.innerHTML = `<i class="fas fa-chart-line"></i> My Sales (${username})`;
+                }
+            }
+
         } else {
             console.warn("Cloud bills fail, using local storage");
             const localBills = localStorage.getItem('billHistory');
@@ -158,23 +186,25 @@ function updateRecentSalesTable(billHistory) {
         if (!container) return;
 
         if (!billHistory || billHistory.length === 0) {
-            container.innerHTML = '<p class="text-muted p-3">No recent sales data available</p>';
+            container.innerHTML = '<p class="text-muted p-3">No sales data available yet.</p>';
             return;
         }
 
         const recentBills = billHistory.slice(0, 5);
         let html = `<div class="table-responsive"><table class="table table-sm table-hover mb-0">
-                    <thead><tr><th>Bill No</th><th>Customer</th><th>Amount</th><th>Time</th></tr></thead><tbody>`;
+                    <thead><tr><th>Bill No</th><th>Customer</th><th>Issued By</th><th>Amount</th><th>Time</th></tr></thead><tbody>`;
         
         recentBills.forEach(bill => {
             const dateObj = new Date(bill.date || Date.now());
             const time = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             const customerName = (bill.customer && bill.customer.name) ? bill.customer.name : 'Walk-in';
             const totalAmount = bill.total ? parseFloat(bill.total).toFixed(2) : '0.00';
+            const issuedBy = bill.issuedBy || 'Unknown'; // NAYA: Table me bill bananey wale ka naam
             
             html += `<tr>
                 <td><small class="text-muted">${bill.billNumber || '-'}</small></td>
                 <td><strong>${customerName}</strong></td>
+                <td><span class="badge" style="background:#e0e0e0; color:black;">${issuedBy}</span></td>
                 <td><span style="color: #28a745; font-weight: bold;">₹${totalAmount}</span></td>
                 <td><span class="badge" style="background: #e9ecef; color: #495057;">${time}</span></td>
             </tr>`;

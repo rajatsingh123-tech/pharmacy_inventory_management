@@ -36,7 +36,6 @@ const userSchema = new mongoose.Schema({
     email: { type: String, unique: true },
     password: { type: String },
     role: { type: String, default: 'staff' },
-    // NAYA: OTP save karne ke liye
     resetOtp: { type: String },
     otpExpiry: { type: Date }
 });
@@ -46,7 +45,10 @@ const billSchema = new mongoose.Schema({
     customer: { name: { type: String, default: 'Walk-in Customer' }, phone: { type: String, default: '' } },
     items: [{ name: String, price: Number, quantity: Number, total: Number }],
     subtotal: Number, tax: Number, discount: Number, total: Number,
-    date: { type: Date, default: Date.now }, billNumber: String
+    date: { type: Date, default: Date.now }, 
+    billNumber: String,
+    // 🔥 NAYA: Kisne bill banaya (Role-based tracking ke liye)
+    issuedBy: { type: String, default: 'Unknown' }
 });
 const Bill = mongoose.model('Bill', billSchema);
 
@@ -66,7 +68,7 @@ app.post('/api/login', async (req, res) => {
         const user = await User.findOne({ $or: [{ username }, { email: username }] });
         
         if (user && user.password === password) {
-            res.json({ success: true, message: 'Login successful!', token: 'auth-token-' + user._id, user: { id: user._id, username: user.username, fullName: user.fullName } });
+            res.json({ success: true, message: 'Login successful!', token: 'auth-token-' + user._id, user: { id: user._id, username: user.username, fullName: user.fullName, role: user.role } });
         } else {
             res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
@@ -83,7 +85,7 @@ app.post('/api/signup', async (req, res) => {
 });
 
 // ==========================================
-// 🔥 NAYA: OTP SEND ROUTE 🔥
+// 🔥 OTP SEND ROUTE 🔥
 // ==========================================
 app.post('/api/forgot-password', async (req, res) => {
     try {
@@ -94,10 +96,7 @@ app.post('/api/forgot-password', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Is email se koi account nahi mila.' });
         }
 
-        // 6-digit OTP generate karo
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
-        // OTP aur Expiry (15 mins) database me save karo
         user.resetOtp = otp;
         user.otpExpiry = Date.now() + 15 * 60 * 1000;
         await user.save();
@@ -134,24 +133,22 @@ app.post('/api/forgot-password', async (req, res) => {
 });
 
 // ==========================================
-// 🔥 NAYA: VERIFY OTP & RESET PASSWORD ROUTE 🔥
+// 🔥 VERIFY OTP & RESET PASSWORD ROUTE 🔥
 // ==========================================
 app.post('/api/reset-password', async (req, res) => {
     try {
         const { email, otp, newPassword } = req.body;
 
-        // User dhoondo jiska email aur OTP match kare, aur OTP expire na hua ho
         const user = await User.findOne({ 
             email: email, 
             resetOtp: otp, 
-            otpExpiry: { $gt: Date.now() } // OTP expiry aage ki honi chahiye
+            otpExpiry: { $gt: Date.now() } 
         });
 
         if (!user) {
             return res.status(400).json({ success: false, message: 'Invalid ya Expired OTP!' });
         }
 
-        // Naya password save karo aur OTP delete kar do
         user.password = newPassword;
         user.resetOtp = undefined;
         user.otpExpiry = undefined;
@@ -164,15 +161,32 @@ app.post('/api/reset-password', async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error while resetting password.' });
     }
 });
-// ==========================================
 
+// ==========================================
+// 🔥 BILLING ROUTES (Role Based Filtering) 🔥
+// ==========================================
 app.get('/api/bills', async (req, res) => {
-    try { const bills = await Bill.find().sort({ date: -1 }); res.json(bills); } 
+    try { 
+        const { username, role } = req.query; // Frontend se role aayega
+        let filter = {};
+
+        // Agar admin nahi hai, toh sirf khud ke bill dekhega
+        if (role !== 'admin' && username) {
+            filter.issuedBy = username;
+        }
+
+        const bills = await Bill.find(filter).sort({ date: -1 }); 
+        res.json(bills); 
+    } 
     catch (error) { res.status(500).json({ success: false, message: 'Failed to fetch bills' }); }
 });
 
 app.post('/api/bills', async (req, res) => {
-    try { const newBill = new Bill(req.body); await newBill.save(); res.status(201).json({ success: true, bill: newBill }); } 
+    try { 
+        const newBill = new Bill(req.body); 
+        await newBill.save(); 
+        res.status(201).json({ success: true, bill: newBill }); 
+    } 
     catch (error) { res.status(500).json({ success: false, message: 'Failed to save bill' }); }
 });
 

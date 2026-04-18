@@ -1,7 +1,7 @@
-// medicine.js - Instant Inline Editing (Fixed for 8 Columns)
+// medicine.js - Instant Inline Editing (Fixed DOM Override)
 var API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 let globalMedicines = []; 
-let editingId = null; // Track karne ke liye ki kaunsi row edit ho rahi hai
+let editingId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('💊 Medicine System Loaded (Inline Edit Mode)');
@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// 1. Fetch Data from Cloud
+// 1. Fetch Data
 async function fetchMedicines() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/medicines`);
@@ -28,81 +28,102 @@ async function fetchMedicines() {
     }
 }
 
-// 2. Table Render Function (Inline Edit Logic with Status Column)
+// 2. Render Full Table (Overriding main.js)
 function renderTable() {
-    const tbody = document.getElementById('medicineTableBody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
+    // Hum seedha container ko target kar rahe hain
+    const container = document.getElementById('medicinesContainer');
+    if (!container) return;
     
     if (globalMedicines.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center">No medicines found.</td></tr>';
+        container.innerHTML = '<div style="text-align: center; padding: 40px;"><p>No medicines found.</p></div>';
         return;
     }
     
+    // Poori table HTML yahan generate hogi
+    let tableHTML = `
+        <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <thead>
+                <tr style="background-color: #6a5acd; color: white; text-align: left;">
+                    <th style="padding: 15px;">#</th>
+                    <th style="padding: 15px;">Name</th>
+                    <th style="padding: 15px;">Company</th>
+                    <th style="padding: 15px;">Price</th>
+                    <th style="padding: 15px;">Qty</th>
+                    <th style="padding: 15px;">Expiry</th>
+                    <th style="padding: 15px;">Status</th>
+                    <th style="padding: 15px;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
     globalMedicines.forEach((med, index) => {
         const isEditing = med._id === editingId;
-        const tr = document.createElement('tr');
         
         // Status Calculate karna
         let statusText = 'Active';
-        let statusColor = 'green'; 
+        let statusColor = '#28a745'; 
         const today = new Date();
         const expiry = new Date(med.expiryDate);
         
         if (med.quantity <= 0) {
             statusText = 'Out of Stock';
-            statusColor = 'red';
+            statusColor = '#dc3545';
         } else if (expiry < today) {
             statusText = 'Expired';
-            statusColor = 'red';
+            statusColor = '#dc3545';
         }
 
         if (isEditing) {
-            // EDIT MODE: Chhote input fields dikhao
-            tr.innerHTML = `
-                <td>${index + 1}</td>
-                <td><input type="text" class="form-control form-control-sm" value="${med.name}" disabled style="width: 100px;"></td>
-                <td>${med.company || '-'}</td>
-                <td><input type="number" id="editPrice-${med._id}" class="form-control form-control-sm" value="${med.price}" style="width: 70px;"></td>
-                <td><input type="number" id="editQty-${med._id}" class="form-control form-control-sm" value="${med.quantity}" style="width: 70px;"></td>
-                <td>${expiry.toLocaleDateString()}</td>
-                <td style="color: ${statusColor}; font-weight: bold;">${statusText}</td>
-                <td>
-                    <button onclick="saveInlineEdit('${med._id}')" class="btn btn-sm btn-success" title="Save"><i class="fas fa-check"></i></button>
-                    <button onclick="cancelEdit()" class="btn btn-sm btn-secondary" title="Cancel"><i class="fas fa-times"></i></button>
-                </td>
+            // EDIT MODE
+            tableHTML += `
+                <tr style="background-color: #f8f9fa; border-bottom: 1px solid #eee;">
+                    <td style="padding: 15px;">${index + 1}</td>
+                    <td style="padding: 15px;"><input type="text" value="${med.name}" disabled style="width: 100px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; background: #e9ecef;"></td>
+                    <td style="padding: 15px;">${med.company || '-'}</td>
+                    <td style="padding: 15px;"><input type="number" id="editPrice-${med._id}" value="${med.price}" style="width: 70px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                    <td style="padding: 15px;"><input type="number" id="editQty-${med._id}" value="${med.quantity}" style="width: 70px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                    <td style="padding: 15px;">${expiry.toLocaleDateString()}</td>
+                    <td style="padding: 15px; color: ${statusColor}; font-weight: bold;">${statusText}</td>
+                    <td style="padding: 15px;">
+                        <button onclick="saveInlineEdit('${med._id}')" title="Save" style="background: none; border: none; color: #28a745; font-size: 18px; cursor: pointer;"><i class="fas fa-check-circle"></i></button>
+                        <button onclick="cancelEdit()" title="Cancel" style="background: none; border: none; color: #6c757d; font-size: 18px; cursor: pointer; margin-left: 10px;"><i class="fas fa-times-circle"></i></button>
+                    </td>
+                </tr>
             `;
         } else {
-            // VIEW MODE: Normal text dikhao
-            tr.innerHTML = `
-                <td>${index + 1}</td>
-                <td><strong>${med.name}</strong></td>
-                <td>${med.company || '-'}</td>
-                <td>₹${med.price}</td>
-                <td>${med.quantity}</td>
-                <td>${expiry.toLocaleDateString()}</td>
-                <td style="color: ${statusColor};">${statusText}</td>
-                <td>
-                    <button onclick="startEdit('${med._id}')" class="btn btn-sm btn-primary" title="Edit" style="background: none; border: none; color: #4864e4; font-size: 16px; margin-right: 5px;"><i class="fas fa-edit"></i></button>
-                    <button onclick="deleteMedicine('${med._id}')" class="btn btn-sm btn-danger" title="Delete" style="background: none; border: none; color: black; font-size: 16px;"><i class="fas fa-trash"></i></button>
-                </td>
+            // VIEW MODE
+            tableHTML += `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 15px;">${index + 1}</td>
+                    <td style="padding: 15px;"><strong>${med.name}</strong></td>
+                    <td style="padding: 15px;">${med.company || '-'}</td>
+                    <td style="padding: 15px;">₹${med.price}</td>
+                    <td style="padding: 15px;">${med.quantity}</td>
+                    <td style="padding: 15px;">${expiry.toLocaleDateString()}</td>
+                    <td style="padding: 15px; color: ${statusColor}; font-weight: 500;">${statusText}</td>
+                    <td style="padding: 15px;">
+                        <button onclick="startEdit('${med._id}')" title="Edit" style="background: none; border: none; color: #4864e4; font-size: 16px; cursor: pointer; margin-right: 10px;"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteMedicine('${med._id}')" title="Delete" style="background: none; border: none; color: black; font-size: 16px; cursor: pointer;"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
             `;
         }
-        tbody.appendChild(tr);
     });
+    
+    tableHTML += `</tbody></table>`;
+    container.innerHTML = tableHTML;
 }
 
 // --- Inline Edit Actions ---
-
 window.startEdit = function(id) {
     editingId = id;
-    renderTable(); // Table ko edit mode mein reload karo
+    renderTable(); 
 };
 
 window.cancelEdit = function() {
     editingId = null;
-    renderTable(); // Table ko normal mode mein wapas laao
+    renderTable(); 
 };
 
 window.saveInlineEdit = async function(id) {
@@ -117,9 +138,9 @@ window.saveInlineEdit = async function(id) {
         });
 
         if (response.ok) {
-            editingId = null; // Edit mode band karo
-            fetchMedicines(); // Naya data cloud se fetch karo
-            localStorage.setItem('medicineUpdated', Date.now().toString()); // Dashboard update trigger karo
+            editingId = null; 
+            fetchMedicines(); 
+            localStorage.setItem('medicineUpdated', Date.now().toString()); 
         } else {
             alert('Failed to update medicine.');
         }
@@ -129,8 +150,7 @@ window.saveInlineEdit = async function(id) {
     }
 };
 
-// --- Add & Delete Functions (Purana logic) ---
-
+// --- Add & Delete Functions ---
 async function addMedicine(e) {
     e.preventDefault();
     const submitBtn = e.target.querySelector('button[type="submit"]');

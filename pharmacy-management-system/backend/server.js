@@ -47,7 +47,7 @@ const billSchema = new mongoose.Schema({
     subtotal: Number, tax: Number, discount: Number, total: Number,
     date: { type: Date, default: Date.now }, 
     billNumber: String,
-    // 🔥 NAYA: Kisne bill banaya (Role-based tracking ke liye)
+    // 🔥 Kisne bill banaya (Role-based tracking ke liye)
     issuedBy: { type: String, default: 'Unknown' }
 });
 const Bill = mongoose.model('Bill', billSchema);
@@ -75,13 +75,35 @@ app.post('/api/login', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: 'Server Error' }); }
 });
 
+// ==========================================
+// 🔥 SMART SIGNUP ROUTE (Auto-Admin setup) 🔥
+// ==========================================
 app.post('/api/signup', async (req, res) => {
     try {
         const { fullName, username, email, password } = req.body;
-        const newUser = new User({ fullName, username, email, password });
+        
+        // 1. Check karo ki database mein kitne users hain
+        const userCount = await User.countDocuments();
+        
+        // 2. Agar database mein 0 users hain, toh isko 'admin' banao, warna 'staff'
+        const assignedRole = (userCount === 0) ? 'admin' : 'staff';
+        
+        const newUser = new User({ 
+            fullName, 
+            username, 
+            email, 
+            password,
+            role: assignedRole // Naya role yahan assign hoga
+        });
+        
         await newUser.save();
-        res.json({ success: true, message: 'User created successfully!' });
-    } catch (error) { res.status(400).json({ success: false, message: 'User already exists or data invalid' }); }
+        res.json({ 
+            success: true, 
+            message: `User created successfully as ${assignedRole.toUpperCase()}!` 
+        });
+    } catch (error) { 
+        res.status(400).json({ success: false, message: 'User already exists or data invalid' }); 
+    }
 });
 
 // ==========================================

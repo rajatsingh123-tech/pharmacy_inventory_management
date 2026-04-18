@@ -6,16 +6,15 @@ require('dotenv').config();
 
 const app = express();
 
-// ============ 1. MIDDLEWARE (Improved for Vercel/Render) ============
+// ============ 1. MIDDLEWARE ============
 app.use(cors({
-    origin: '*', // Isse frontend block nahi hoga
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 })); 
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true }));
 
-// Static files support (Frontend assets ke liye agar backend se serve ho rahe hon)
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // ============ 2. MONGODB CONNECTION ============
@@ -25,10 +24,12 @@ mongoose.connect(mongoURI)
     .then(() => console.log('✅ MongoDB Atlas Connected Successfully!'))
     .catch(err => {
         console.error('❌ MongoDB Connection Error:', err);
-        process.exit(1); // Agar DB connect na ho toh server band ho jaye taaki error dikhe
+        process.exit(1); 
     });
 
-// ============ 3. USER SCHEMA ============
+// ============ 3. SCHEMAS (Database Structure) ============
+
+// User Schema (Purana)
 const userSchema = new mongoose.Schema({
     fullName: String,
     username: { type: String, unique: true },
@@ -38,14 +39,34 @@ const userSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', userSchema);
 
+// NAYA: Bill Schema (Cloud mein bills save karne ke liye)
+const billSchema = new mongoose.Schema({
+    customer: {
+        name: { type: String, default: 'Walk-in Customer' },
+        phone: { type: String, default: '' }
+    },
+    items: [{
+        name: String,
+        price: Number,
+        quantity: Number,
+        total: Number
+    }],
+    subtotal: Number,
+    tax: Number,
+    discount: Number,
+    total: Number,
+    date: { type: Date, default: Date.now },
+    billNumber: String
+});
+const Bill = mongoose.model('Bill', billSchema);
+
+
 // ============ 4. API ROUTES ============
 
-// Home Route
 app.get('/', (req, res) => {
     res.status(200).send('<h1>Pharmacy API Live 🚀</h1><p>Health check at: /api/health</p>');
 });
 
-// Health Check
 app.get('/api/health', (req, res) => {
     res.status(200).json({ 
         status: 'healthy', 
@@ -54,7 +75,6 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Login API
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -62,52 +82,69 @@ app.post('/api/login', async (req, res) => {
         
         if (user && user.password === password) {
             res.json({
-                success: true,
-                message: 'Login successful!',
-                token: 'auth-token-' + user._id,
+                success: true, message: 'Login successful!', token: 'auth-token-' + user._id,
                 user: { id: user._id, username: user.username, fullName: user.fullName }
             });
         } else {
             res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Server Error' });
-    }
+    } catch (error) { res.status(500).json({ success: false, message: 'Server Error' }); }
 });
 
-// Signup API
 app.post('/api/signup', async (req, res) => {
     try {
         const { fullName, username, email, password } = req.body;
         const newUser = new User({ fullName, username, email, password });
         await newUser.save();
         res.json({ success: true, message: 'User created successfully!' });
+    } catch (error) { res.status(400).json({ success: false, message: 'User already exists or data invalid' }); }
+});
+
+// --- NAYE BILLING ROUTES START ---
+
+// Get all bills (Dashboard ke liye)
+app.get('/api/bills', async (req, res) => {
+    try {
+        const bills = await Bill.find().sort({ date: -1 }); // Latest bill sabse upar aayega
+        res.json(bills);
     } catch (error) {
-        res.status(400).json({ success: false, message: 'User already exists or data invalid' });
+        console.error('Fetch bills error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch bills from cloud' });
     }
 });
 
-// Medicine Routes (Yahan error handling aur pakki kar di hai)
+// Save a new bill (Billing page ke liye)
+app.post('/api/bills', async (req, res) => {
+    try {
+        const newBill = new Bill(req.body);
+        await newBill.save();
+        res.status(201).json({ success: true, message: 'Bill saved to MongoDB successfully!', bill: newBill });
+    } catch (error) {
+        console.error('Save bill error:', error);
+        res.status(500).json({ success: false, message: 'Failed to save bill to cloud' });
+    }
+});
+// --- NAYE BILLING ROUTES END ---
+
+// Medicine Routes
 try {
     const medicineRoutes = require('./routes/medicineRoutes');
     app.use('/api/medicines', medicineRoutes);
     console.log('💊 Medicine routes integrated');
 } catch (e) {
     console.log('⚠️ Medicine routes folder/file missing, using manual fallback');
-    // Agar routes file nahi milti toh API crash nahi hogi
     app.get('/api/medicines', (req, res) => {
         res.json({ success: true, medicines: [], message: 'Backend working, but routes file not found' });
     });
 }
 
-// 404 Handler - Agar koi route galat type kare
+// 404 Handler
 app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Route not found' });
 });
 
 // ============ 5. START SERVER ============
-const PORT = process.env.PORT || 5000; // Render aksar 5000 prefer karta hai
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`\n🚀 Server is blasting off on port ${PORT}`);
-    console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
 });

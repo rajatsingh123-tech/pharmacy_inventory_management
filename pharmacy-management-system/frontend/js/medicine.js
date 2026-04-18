@@ -1,37 +1,36 @@
-// medicine.js - Instant Inline Editing (Fixed DOM Override)
+// medicine.js - Ghost Bypass Version (100% Conflict Free)
 var API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 let globalMedicines = []; 
 let editingId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('💊 Medicine System Loaded (Inline Edit Mode)');
+    console.log('💊 Medicine System Loaded (Ghost Bypass Mode)');
     
     const addForm = document.getElementById('addMedicineForm');
     if (addForm) {
-        addForm.addEventListener('submit', addMedicine);
+        addForm.addEventListener('submit', addNewMedicine);
     }
     
     if (window.location.pathname.includes('view-medicines.html')) {
-        fetchMedicines();
+        fetchMedicinesData(); // Naya function naam
     }
 });
 
 // 1. Fetch Data
-async function fetchMedicines() {
+window.fetchMedicinesData = async function() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/medicines`);
         let data = await response.json();
         globalMedicines = Array.isArray(data) ? data : (data.medicines || data.data || []);
-        renderTable();
+        drawMedicineTable(); // Naya function naam
     } catch (error) {
         console.error('Fetch error:', error);
     }
-}
+};
 
-// 2. Render Full Table (Overriding main.js)
-function renderTable() {
-    // Hum seedha container ko target kar rahe hain
-    const container = document.getElementById('medicinesContainer');
+// 2. Render Full Table
+window.drawMedicineTable = function() {
+    const container = document.getElementById('inventoryContainer'); // NAYA ID
     if (!container) return;
     
     if (globalMedicines.length === 0) {
@@ -39,7 +38,6 @@ function renderTable() {
         return;
     }
     
-    // Poori table HTML yahan generate hogi
     let tableHTML = `
         <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <thead>
@@ -60,7 +58,6 @@ function renderTable() {
     globalMedicines.forEach((med, index) => {
         const isEditing = med._id === editingId;
         
-        // Status Calculate karna
         let statusText = 'Active';
         let statusColor = '#28a745'; 
         const today = new Date();
@@ -85,7 +82,7 @@ function renderTable() {
                     <td style="padding: 15px;"><input type="number" id="editQty-${med._id}" value="${med.quantity}" style="width: 70px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></td>
                     <td style="padding: 15px;">${expiry.toLocaleDateString()}</td>
                     <td style="padding: 15px; color: ${statusColor}; font-weight: bold;">${statusText}</td>
-                    <td style="padding: 15px;">
+                    <td style="padding: 15px; white-space: nowrap;">
                         <button onclick="saveInlineEdit('${med._id}')" title="Save" style="background: none; border: none; color: #28a745; font-size: 18px; cursor: pointer;"><i class="fas fa-check-circle"></i></button>
                         <button onclick="cancelEdit()" title="Cancel" style="background: none; border: none; color: #6c757d; font-size: 18px; cursor: pointer; margin-left: 10px;"><i class="fas fa-times-circle"></i></button>
                     </td>
@@ -102,9 +99,9 @@ function renderTable() {
                     <td style="padding: 15px;">${med.quantity}</td>
                     <td style="padding: 15px;">${expiry.toLocaleDateString()}</td>
                     <td style="padding: 15px; color: ${statusColor}; font-weight: 500;">${statusText}</td>
-                    <td style="padding: 15px;">
+                    <td style="padding: 15px; white-space: nowrap;">
                         <button onclick="startEdit('${med._id}')" title="Edit" style="background: none; border: none; color: #4864e4; font-size: 16px; cursor: pointer; margin-right: 10px;"><i class="fas fa-edit"></i></button>
-                        <button onclick="deleteMedicine('${med._id}')" title="Delete" style="background: none; border: none; color: black; font-size: 16px; cursor: pointer;"><i class="fas fa-trash"></i></button>
+                        <button onclick="deleteMedicineEntry('${med._id}')" title="Delete" style="background: none; border: none; color: black; font-size: 16px; cursor: pointer;"><i class="fas fa-trash"></i></button>
                     </td>
                 </tr>
             `;
@@ -113,17 +110,17 @@ function renderTable() {
     
     tableHTML += `</tbody></table>`;
     container.innerHTML = tableHTML;
-}
+};
 
 // --- Inline Edit Actions ---
 window.startEdit = function(id) {
     editingId = id;
-    renderTable(); 
+    drawMedicineTable(); 
 };
 
 window.cancelEdit = function() {
     editingId = null;
-    renderTable(); 
+    drawMedicineTable(); 
 };
 
 window.saveInlineEdit = async function(id) {
@@ -139,7 +136,7 @@ window.saveInlineEdit = async function(id) {
 
         if (response.ok) {
             editingId = null; 
-            fetchMedicines(); 
+            fetchMedicinesData(); 
             localStorage.setItem('medicineUpdated', Date.now().toString()); 
         } else {
             alert('Failed to update medicine.');
@@ -151,7 +148,7 @@ window.saveInlineEdit = async function(id) {
 };
 
 // --- Add & Delete Functions ---
-async function addMedicine(e) {
+window.addNewMedicine = async function(e) {
     e.preventDefault();
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
@@ -183,17 +180,17 @@ async function addMedicine(e) {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     }
-}
+};
 
-async function deleteMedicine(id) {
+window.deleteMedicineEntry = async function(id) {
     if (!confirm('Are you sure you want to delete this medicine?')) return;
     try {
         const response = await fetch(`${API_BASE_URL}/api/medicines/${id}`, { method: 'DELETE' });
         if (response.ok) {
             localStorage.setItem('medicineDeleted', Date.now().toString());
-            fetchMedicines();
+            fetchMedicinesData();
         }
     } catch (error) {
         console.error("Delete error:", error);
     }
-}
+};

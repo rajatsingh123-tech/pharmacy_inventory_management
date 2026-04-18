@@ -31,6 +31,7 @@
         .message-box.show { display: block; }
         .message-box.success { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
         .message-box.error { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
+        .message-box.info { background: #cce5ff; color: #004085; border-left: 4px solid #007bff; }
         .demo-credentials { margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #667eea; font-size: 14px; }
     </style>
 </head>
@@ -96,7 +97,7 @@
                     <label>Email Address</label>
                     <div class="input-group"><i class="fas fa-paper-plane"></i><input type="email" id="forgotEmail" placeholder="Registered Email" required></div>
                 </div>
-                <button type="submit" class="btn-auth" id="forgotBtn">Reset Password</button>
+                <button type="submit" class="btn-auth" id="forgotBtn">Send Temp Password</button>
             </form>
         </div>
 
@@ -121,7 +122,7 @@
             const box = document.getElementById('messageBox');
             box.textContent = text;
             box.className = `message-box ${type} show`;
-            setTimeout(() => box.classList.remove('show'), 5000);
+            setTimeout(() => box.classList.remove('show'), 6000); // 6 seconds tak dikhega
         }
 
         async function handleLogin(e) {
@@ -174,9 +175,44 @@
             btn.disabled = false;
         }
 
+        // ==========================================
+        // 🔥 ASLI FORGOT PASSWORD API CONNECTION 🔥
+        // ==========================================
         async function handleForgotPassword(e) {
             e.preventDefault();
-            showMsg('📧 Reset link sent if email exists.', 'success');
+            
+            const email = document.getElementById('forgotEmail').value;
+            const btn = document.getElementById('forgotBtn');
+            
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending Email...';
+            btn.disabled = true;
+            showMsg('⏳ Email bhej rahe hain... kripya wait karein.', 'info');
+
+            try {
+                // Direct call to /forgot-password route on your Render backend
+                const res = await fetch(`${API_URL}/forgot-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    showMsg('✅ ' + data.message, 'success');
+                    document.getElementById('forgotEmail').value = ''; // Input saaf kar do
+                    setTimeout(() => switchTab('login'), 3000); // 3 second baad login pe le jao
+                } else { 
+                    showMsg('❌ ' + data.message, 'error'); 
+                }
+            } catch (err) { 
+                console.error("Forgot Pass Error:", err);
+                showMsg('❌ Server se connect nahi ho paya.', 'error'); 
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
     </script>
 </body>

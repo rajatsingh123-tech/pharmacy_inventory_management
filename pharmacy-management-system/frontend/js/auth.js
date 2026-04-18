@@ -58,7 +58,7 @@ async function logout() {
 // 5. Page Protection
 function protectPage() {
     const currentPage = window.location.pathname.split('/').pop();
-    const protectedPages = ['dashboard.html', 'add-medicine.html', 'billing.html'];
+    const protectedPages = ['dashboard.html', 'add-medicine.html', 'billing.html', 'view-medicines.html'];
     if (protectedPages.includes(currentPage) && !isAuthenticated()) {
         window.location.href = 'login.html';
         return false;
@@ -89,13 +89,47 @@ function updateNavigation() {
     }
 }
 
+// 7. Forgot Password Function (NAYA ADD KIYA HAI)
+async function handleForgotPassword() {
+    const email = prompt("Please enter your registered Email ID:");
+    
+    if (!email) return; // User cancelled
+    if (!email.includes('@')) {
+        alert('❌ Please enter a valid email address.');
+        return;
+    }
+
+    alert('⏳ Sending email... Please wait.');
+
+    try {
+        const response = await fetch(`${BASE_URL}/api/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ ' + data.message);
+        } else {
+            alert('❌ ' + data.message);
+        }
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        alert('❌ Server connection error.');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     protectPage();
     updateNavigation();
 });
 
+// Make functions globally available
 window.isAuthenticated = isAuthenticated;
 window.getCurrentUser = getCurrentUser;
 window.loginUser = loginUser;
 window.logout = logout;
 window.protectPage = protectPage;
+window.handleForgotPassword = handleForgotPassword; // Isko global kar diya taaki HTML se chal sake

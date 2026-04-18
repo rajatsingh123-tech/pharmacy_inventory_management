@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const nodemailer = require('nodemailer'); // NAYA: Email bhejne ke liye
 require('dotenv').config();
 
 const app = express();
@@ -29,7 +30,6 @@ mongoose.connect(mongoURI)
 
 // ============ 3. SCHEMAS (Database Structure) ============
 
-// User Schema (Purana)
 const userSchema = new mongoose.Schema({
     fullName: String,
     username: { type: String, unique: true },
@@ -39,7 +39,6 @@ const userSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', userSchema);
 
-// NAYA: Bill Schema (Cloud mein bills save karne ke liye)
 const billSchema = new mongoose.Schema({
     customer: {
         name: { type: String, default: 'Walk-in Customer' },
@@ -100,12 +99,67 @@ app.post('/api/signup', async (req, res) => {
     } catch (error) { res.status(400).json({ success: false, message: 'User already exists or data invalid' }); }
 });
 
-// --- NAYE BILLING ROUTES START ---
+// ==========================================
+// 🚀 NAYA: FORGOT PASSWORD ROUTE
+// ==========================================
+app.post('/api/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        // 1. Check if user exists
+        const user = await User.findOne({ email: email });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'No account found with this email.' });
+        }
 
-// Get all bills (Dashboard ke liye)
+        // 2. Generate new random password
+        const tempPassword = Math.random().toString(36).slice(-8); // 8 character ka password
+
+        // 3. Save new password to database
+        user.password = tempPassword;
+        await user.save();
+
+        // 4. Setup Email config
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER, // Render se aayega
+                pass: process.env.EMAIL_PASS  // Render se aayega
+            }
+        });
+
+        // 5. Send Email
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'PharmaCare - Your Password Has Been Reset',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                    <h2 style="color: #4864e4;">PharmaCare Security</h2>
+                    <p>Hello <strong>${user.fullName}</strong>,</p>
+                    <p>Your password has been successfully reset. Here is your new temporary login password:</p>
+                    <div style="background: #f4f4f4; padding: 10px; font-size: 24px; text-align: center; letter-spacing: 2px; font-weight: bold; color: #d9534f; border-radius: 5px;">
+                        ${tempPassword}
+                    </div>
+                    <p style="margin-top: 20px;">Please login using this password. Make sure to keep it secure.</p>
+                    <p>Thank you,<br>PharmaCare Team</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.json({ success: true, message: 'Temporary password sent to your email successfully!' });
+
+    } catch (error) {
+        console.error('Email sending error:', error);
+        res.status(500).json({ success: false, message: 'Failed to send email. Check server configuration.' });
+    }
+});
+// ==========================================
+
 app.get('/api/bills', async (req, res) => {
     try {
-        const bills = await Bill.find().sort({ date: -1 }); // Latest bill sabse upar aayega
+        const bills = await Bill.find().sort({ date: -1 }); 
         res.json(bills);
     } catch (error) {
         console.error('Fetch bills error:', error);
@@ -113,7 +167,6 @@ app.get('/api/bills', async (req, res) => {
     }
 });
 
-// Save a new bill (Billing page ke liye)
 app.post('/api/bills', async (req, res) => {
     try {
         const newBill = new Bill(req.body);
@@ -124,9 +177,7 @@ app.post('/api/bills', async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to save bill to cloud' });
     }
 });
-// --- NAYE BILLING ROUTES END ---
 
-// Medicine Routes
 try {
     const medicineRoutes = require('./routes/medicineRoutes');
     app.use('/api/medicines', medicineRoutes);
@@ -138,12 +189,10 @@ try {
     });
 }
 
-// 404 Handler
 app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// ============ 5. START SERVER ============
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`\n🚀 Server is blasting off on port ${PORT}`);

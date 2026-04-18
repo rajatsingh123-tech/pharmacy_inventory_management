@@ -1,18 +1,15 @@
-// medicine.js - Ghost Bypass Version (100% Conflict Free)
+// medicine.js - Ultimate Version (Cache Busted & Conflict Free)
 var API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 let globalMedicines = []; 
 let editingId = null;
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('💊 Medicine System Loaded (Ghost Bypass Mode)');
-    
-    const addForm = document.getElementById('addMedicineForm');
-    if (addForm) {
-        addForm.addEventListener('submit', addNewMedicine);
-    }
+// Wait for EVERYTHING to load before running our code
+window.addEventListener('load', function() {
+    console.log('💊 Medicine System Loaded (Ultimate Mode)');
     
     if (window.location.pathname.includes('view-medicines.html')) {
-        fetchMedicinesData(); // Naya function naam
+        // Delay fetch by 100ms to ensure main.js has finished whatever it's doing
+        setTimeout(fetchMedicinesData, 100);
     }
 });
 
@@ -22,7 +19,7 @@ window.fetchMedicinesData = async function() {
         const response = await fetch(`${API_BASE_URL}/api/medicines`);
         let data = await response.json();
         globalMedicines = Array.isArray(data) ? data : (data.medicines || data.data || []);
-        drawMedicineTable(); // Naya function naam
+        drawMedicineTable();
     } catch (error) {
         console.error('Fetch error:', error);
     }
@@ -30,7 +27,7 @@ window.fetchMedicinesData = async function() {
 
 // 2. Render Full Table
 window.drawMedicineTable = function() {
-    const container = document.getElementById('inventoryContainer'); // NAYA ID
+    const container = document.getElementById('inventoryContainer');
     if (!container) return;
     
     if (globalMedicines.length === 0) {
@@ -91,10 +88,10 @@ window.drawMedicineTable = function() {
         } else {
             // VIEW MODE
             tableHTML += `
-                <tr style="border-bottom: 1px solid #eee;">
+                <tr style="border-bottom: 1px solid #eee;" class="med-row">
                     <td style="padding: 15px;">${index + 1}</td>
-                    <td style="padding: 15px;"><strong>${med.name}</strong></td>
-                    <td style="padding: 15px;">${med.company || '-'}</td>
+                    <td style="padding: 15px;" class="med-name"><strong>${med.name}</strong></td>
+                    <td style="padding: 15px;" class="med-company">${med.company || '-'}</td>
                     <td style="padding: 15px;">₹${med.price}</td>
                     <td style="padding: 15px;">${med.quantity}</td>
                     <td style="padding: 15px;">${expiry.toLocaleDateString()}</td>
@@ -147,41 +144,6 @@ window.saveInlineEdit = async function(id) {
     }
 };
 
-// --- Add & Delete Functions ---
-window.addNewMedicine = async function(e) {
-    e.preventDefault();
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-    submitBtn.disabled = true;
-
-    const medicineData = {
-        name: document.getElementById('name').value,
-        company: document.getElementById('company').value,
-        price: Number(document.getElementById('price').value),
-        quantity: Number(document.getElementById('quantity').value),
-        expiryDate: document.getElementById('expiryDate').value
-    };
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/medicines`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(medicineData)
-        });
-        
-        if (response.ok) {
-            document.getElementById('addMedicineForm').reset();
-            localStorage.setItem('medicineAdded', Date.now().toString());
-            alert("Medicine added successfully!");
-        }
-    } catch (error) {
-        console.error("Add error:", error);
-    } finally {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-    }
-};
-
 window.deleteMedicineEntry = async function(id) {
     if (!confirm('Are you sure you want to delete this medicine?')) return;
     try {
@@ -193,4 +155,20 @@ window.deleteMedicineEntry = async function(id) {
     } catch (error) {
         console.error("Delete error:", error);
     }
+};
+
+// Search Logic Built-in
+window.searchMedicines = function() {
+    const input = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('.med-row');
+    
+    rows.forEach(row => {
+        const name = row.querySelector('.med-name').textContent.toLowerCase();
+        const company = row.querySelector('.med-company').textContent.toLowerCase();
+        if (name.includes(input) || company.includes(input)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
 };

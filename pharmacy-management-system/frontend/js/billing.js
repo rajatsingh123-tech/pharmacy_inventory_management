@@ -1,4 +1,4 @@
-// billing.js - Complete Working Billing System
+// billing.js - Complete Working Billing System (Cloud Integrated)
 
 // Global variables
 var API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
@@ -72,7 +72,7 @@ async function loadMedicinesForBilling() {
         medicineSelect.innerHTML = '<option value="">Loading medicines...</option>';
         medicineSelect.disabled = true;
         
-        // Fetch medicines from API (Fixed URL)
+        // Fetch medicines from API
         const response = await fetch(`${API_BASE_URL}/api/medicines`);
         
         if (!response.ok) {
@@ -163,30 +163,9 @@ function populateMedicineDropdown(medicines) {
 // Get fallback medicines
 function getFallbackMedicines() {
     return [
-        {
-            _id: '1',
-            name: 'Paracetamol 500mg',
-            company: 'Cipla Ltd',
-            price: 5.50,
-            quantity: 100,
-            expiryDate: '2025-12-31'
-        },
-        {
-            _id: '2',
-            name: 'Cetirizine 10mg',
-            company: 'Sun Pharma',
-            price: 8.75,
-            quantity: 50,
-            expiryDate: '2024-11-30'
-        },
-        {
-            _id: '3',
-            name: 'Aspirin 75mg',
-            company: 'Bayer',
-            price: 12.99,
-            quantity: 30,
-            expiryDate: '2024-08-15'
-        }
+        { _id: '1', name: 'Paracetamol 500mg', company: 'Cipla Ltd', price: 5.50, quantity: 100, expiryDate: '2025-12-31' },
+        { _id: '2', name: 'Cetirizine 10mg', company: 'Sun Pharma', price: 8.75, quantity: 50, expiryDate: '2024-11-30' },
+        { _id: '3', name: 'Aspirin 75mg', company: 'Bayer', price: 12.99, quantity: 30, expiryDate: '2024-08-15' }
     ];
 }
 
@@ -252,37 +231,22 @@ function addToBill() {
 
 // Add item to cart
 function addToCart(medicineId, name, price, quantity, maxStock) {
-    // Check if already in cart
     const existingItemIndex = cartItems.findIndex(item => item.id === medicineId);
     
     if (existingItemIndex !== -1) {
-        // Update existing item
         const newQuantity = cartItems[existingItemIndex].quantity + quantity;
-        
         if (newQuantity > maxStock) {
             showMessage(`❌ Cannot add more than ${maxStock} units`, 'error');
             return;
         }
-        
         cartItems[existingItemIndex].quantity = newQuantity;
         cartItems[existingItemIndex].total = newQuantity * price;
     } else {
-        // Add new item
-        cartItems.push({
-            id: medicineId,
-            name: name,
-            price: price,
-            quantity: quantity,
-            total: price * quantity,
-            maxStock: maxStock
-        });
+        cartItems.push({ id: medicineId, name: name, price: price, quantity: quantity, total: price * quantity, maxStock: maxStock });
     }
     
-    // Update UI
     updateBillTable();
     updateBillSummary();
-    
-    // Save to localStorage
     saveCartToLocalStorage();
 }
 
@@ -292,23 +256,15 @@ function updateBillTable() {
     const emptyBillMessage = document.getElementById('emptyBillMessage');
     
     if (!billTableBody) return;
-    
-    // Clear table
     billTableBody.innerHTML = '';
     
     if (cartItems.length === 0) {
-        if (emptyBillMessage) {
-            emptyBillMessage.style.display = 'table-row';
-        }
+        if (emptyBillMessage) emptyBillMessage.style.display = 'table-row';
         return;
     }
     
-    // Hide empty message
-    if (emptyBillMessage) {
-        emptyBillMessage.style.display = 'none';
-    }
+    if (emptyBillMessage) emptyBillMessage.style.display = 'none';
     
-    // Add cart items to table
     cartItems.forEach((item, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -317,47 +273,32 @@ function updateBillTable() {
             <td>₹${item.price.toFixed(2)}</td>
             <td>
                 <div class="quantity-control">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="updateQuantity(${index}, ${item.quantity - 1})" ${item.quantity <= 1 ? 'disabled' : ''}>
-                        <i class="fas fa-minus"></i>
-                    </button>
-                    <input type="number" class="quantity-input" value="${item.quantity}" min="1" max="${item.maxStock}" 
-                           onchange="updateQuantity(${index}, this.value)" style="width: 60px; text-align: center;">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="updateQuantity(${index}, ${item.quantity + 1})" ${item.quantity >= item.maxStock ? 'disabled' : ''}>
-                        <i class="fas fa-plus"></i>
-                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="updateQuantity(${index}, ${item.quantity - 1})" ${item.quantity <= 1 ? 'disabled' : ''}><i class="fas fa-minus"></i></button>
+                    <input type="number" class="quantity-input" value="${item.quantity}" min="1" max="${item.maxStock}" onchange="updateQuantity(${index}, this.value)" style="width: 60px; text-align: center;">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="updateQuantity(${index}, ${item.quantity + 1})" ${item.quantity >= item.maxStock ? 'disabled' : ''}><i class="fas fa-plus"></i></button>
                 </div>
             </td>
             <td>₹${item.total.toFixed(2)}</td>
-            <td>
-                <button class="btn btn-sm btn-danger" onclick="removeFromCart(${index})">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
+            <td><button class="btn btn-sm btn-danger" onclick="removeFromCart(${index})"><i class="fas fa-trash"></i></button></td>
         `;
         billTableBody.appendChild(row);
     });
 }
 
-// Update quantity of cart item
 function updateQuantity(index, newQuantity) {
-    if (isNaN(newQuantity) || newQuantity < 1) {
-        newQuantity = 1;
-    }
-    
+    if (isNaN(newQuantity) || newQuantity < 1) newQuantity = 1;
     const item = cartItems[index];
     newQuantity = Math.min(newQuantity, item.maxStock);
     
     if (newQuantity !== item.quantity) {
         cartItems[index].quantity = newQuantity;
         cartItems[index].total = newQuantity * item.price;
-        
         updateBillTable();
         updateBillSummary();
         saveCartToLocalStorage();
     }
 }
 
-// Remove item from cart
 function removeFromCart(index) {
     if (confirm('Remove this item from bill?')) {
         cartItems.splice(index, 1);
@@ -368,7 +309,6 @@ function removeFromCart(index) {
     }
 }
 
-// Update bill summary
 function updateBillSummary() {
     const subtotalElement = document.getElementById('subtotal');
     const taxElement = document.getElementById('tax');
@@ -377,36 +317,22 @@ function updateBillSummary() {
     
     if (!subtotalElement || !taxElement || !totalElement) return;
     
-    // Calculate totals
     const subtotal = cartItems.reduce((sum, item) => sum + item.total, 0);
     const tax = subtotal * 0.05; // 5% tax
     const discount = parseFloat(document.getElementById('discountAmount')?.value || 0);
     const total = subtotal + tax - discount;
     
-    // Update UI
     subtotalElement.textContent = `₹${subtotal.toFixed(2)}`;
     taxElement.textContent = `₹${tax.toFixed(2)}`;
     totalElement.textContent = `₹${total.toFixed(2)}`;
     
-    // Update discount display
     const discountElement = document.getElementById('discount');
-    if (discountElement) {
-        discountElement.textContent = `-₹${discount.toFixed(2)}`;
-    }
-    
-    // Enable/disable checkout button
-    if (checkoutBtn) {
-        checkoutBtn.disabled = cartItems.length === 0;
-    }
+    if (discountElement) discountElement.textContent = `-₹${discount.toFixed(2)}`;
+    if (checkoutBtn) checkoutBtn.disabled = cartItems.length === 0;
 }
 
-// Clear bill
 function clearBill() {
-    if (cartItems.length === 0) {
-        showMessage('Bill is already empty', 'info');
-        return;
-    }
-    
+    if (cartItems.length === 0) { showMessage('Bill is already empty', 'info'); return; }
     if (confirm('Clear all items from bill? This action cannot be undone.')) {
         cartItems = [];
         updateBillTable();
@@ -416,7 +342,9 @@ function clearBill() {
     }
 }
 
-// Process bill
+// ==========================================
+// PROCESS BILL (Updated for MongoDB Cloud)
+// ==========================================
 async function processBill() {
     if (cartItems.length === 0) {
         showMessage('❌ No items in bill to process', 'error');
@@ -424,25 +352,20 @@ async function processBill() {
     }
     
     try {
-        // Show processing state
         const checkoutBtn = document.getElementById('checkoutBtn');
         if (checkoutBtn) {
-            const originalText = checkoutBtn.innerHTML;
             checkoutBtn.disabled = true;
             checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         }
         
-        // Calculate totals
         const subtotal = cartItems.reduce((sum, item) => sum + item.total, 0);
         const tax = subtotal * 0.05;
         const discount = parseFloat(document.getElementById('discountAmount')?.value || 0);
         const total = subtotal + tax - discount;
         
-        // Get customer name
         const customerName = document.getElementById('customerName')?.value || 'Walk-in Customer';
         const customerPhone = document.getElementById('customerPhone')?.value || '';
         
-        // Create bill data
         const billData = {
             customer: {
                 name: customerName,
@@ -462,29 +385,34 @@ async function processBill() {
             billNumber: 'BILL-' + Date.now()
         };
         
-        // Try to update stock in backend (Fixed URL)
+        // 1. Update medicine stock in backend
         try {
-            const response = await fetch(`${API_BASE_URL}/api/medicines/bill/process`, {
+            await fetch(`${API_BASE_URL}/api/medicines/bill/process`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    items: cartItems.map(item => ({ 
-                        id: item.id, 
-                        quantity: item.quantity 
-                    }))
+                    items: cartItems.map(item => ({ id: item.id, quantity: item.quantity }))
                 })
             });
-            
-            if (response.ok) {
-                console.log('✅ Stock updated in backend');
-            }
         } catch (error) {
             console.warn('⚠️ Could not update backend stock:', error.message);
         }
         
-        // Save bill to history
+        // 2. NAYA: Save Bill directly to MongoDB Cloud
+        try {
+            const saveResponse = await fetch(`${API_BASE_URL}/api/bills`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(billData)
+            });
+            if(saveResponse.ok) {
+                console.log('✅ Bill saved to cloud MongoDB successfully!');
+            }
+        } catch (err) {
+            console.error('⚠️ Failed to save bill to cloud:', err);
+        }
+        
+        // 3. Save locally as backup
         saveBillToHistory(billData);
         
         // Generate receipt
@@ -496,17 +424,10 @@ async function processBill() {
             document.getElementById('discountAmount').value = '0';
         }
         
-        // Update UI
         updateBillTable();
         updateBillSummary();
-        
-        // Clear localStorage
         localStorage.removeItem('currentCart');
-        
-        // Reload medicines to reflect stock changes
         loadMedicinesForBilling();
-        
-        // Trigger dashboard update
         triggerDashboardUpdate();
         
         showMessage('✅ Bill processed successfully! Receipt generated.', 'success');
@@ -515,7 +436,6 @@ async function processBill() {
         console.error('Error processing bill:', error);
         showMessage('❌ Error processing bill: ' + error.message, 'error');
     } finally {
-        // Restore checkout button
         const checkoutBtn = document.getElementById('checkoutBtn');
         if (checkoutBtn) {
             checkoutBtn.disabled = false;
@@ -524,84 +444,30 @@ async function processBill() {
     }
 }
 
-// Save bill to history
+// Save bill to history (Local backup)
 function saveBillToHistory(billData) {
     try {
         let billHistory = JSON.parse(localStorage.getItem('billHistory') || '[]');
         billHistory.unshift(billData);
-        
-        // Keep only last 50 bills
-        if (billHistory.length > 50) {
-            billHistory = billHistory.slice(0, 50);
-        }
-        
+        if (billHistory.length > 50) billHistory = billHistory.slice(0, 50);
         localStorage.setItem('billHistory', JSON.stringify(billHistory));
-        
-        // Update dashboard stats
-        updateDashboardStats();
-        
-    } catch (error) {
-        console.error('Error saving bill to history:', error);
-    }
+    } catch (error) { console.error('Error saving bill to history:', error); }
 }
 
-// Update dashboard stats
 function updateDashboardStats() {
-    try {
-        const billHistory = JSON.parse(localStorage.getItem('billHistory') || '[]');
-        const today = new Date().toDateString();
-        
-        // Calculate today's sales
-        const todaySales = billHistory.filter(bill => 
-            new Date(bill.date).toDateString() === today
-        );
-        
-        const todaySalesCount = todaySales.length;
-        const todaySalesAmount = todaySales.reduce((sum, bill) => sum + (bill.total || 0), 0);
-        
-        // Update dashboard elements
-        const todayBillsElement = document.getElementById('todayBills');
-        const totalSalesElement = document.getElementById('totalSales');
-        
-        if (todayBillsElement) {
-            todayBillsElement.textContent = todaySalesCount;
-        }
-        
-        if (totalSalesElement) {
-            const totalSales = billHistory.reduce((sum, bill) => sum + (bill.total || 0), 0);
-            totalSalesElement.textContent = `₹${totalSales.toFixed(2)}`;
-        }
-        
-        // Trigger storage event for other tabs
-        localStorage.setItem('dashboardUpdated', Date.now().toString());
-        
-    } catch (error) {
-        console.error('Error updating dashboard stats:', error);
-    }
+    // Left empty here because dashboard.js handles fetching from cloud now
+    localStorage.setItem('dashboardUpdated', Date.now().toString());
 }
 
-// Trigger dashboard update
 function triggerDashboardUpdate() {
-    // Update localStorage to trigger updates in other tabs
     localStorage.setItem('billProcessed', Date.now().toString());
-    
-    // Update dashboard stats
-    updateDashboardStats();
-    
-    // Also update medicine stock display
     localStorage.setItem('medicinesUpdated', Date.now().toString());
 }
 
-// Save cart to localStorage
 function saveCartToLocalStorage() {
-    try {
-        localStorage.setItem('currentCart', JSON.stringify(cartItems));
-    } catch (error) {
-        console.error('Error saving cart to localStorage:', error);
-    }
+    try { localStorage.setItem('currentCart', JSON.stringify(cartItems)); } catch (e) {}
 }
 
-// Load saved cart
 function loadSavedCart() {
     try {
         const savedCart = localStorage.getItem('currentCart');
@@ -613,27 +479,17 @@ function loadSavedCart() {
                 showMessage('Loaded saved cart from previous session', 'info');
             }
         }
-    } catch (error) {
-        console.error('Error loading saved cart:', error);
-    }
+    } catch (e) {}
 }
 
-// Generate receipt
 function generateReceipt(billData) {
-    // Create receipt container
     const receiptContainer = document.createElement('div');
     receiptContainer.className = 'receipt-container';
     receiptContainer.style.cssText = `
-        background: white;
-        padding: 20px;
-        border-radius: 10px;
-        max-width: 600px;
-        margin: 20px auto;
-        box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        font-family: 'Courier New', monospace;
+        background: white; padding: 20px; border-radius: 10px; max-width: 600px;
+        margin: 20px auto; box-shadow: 0 0 20px rgba(0,0,0,0.1); font-family: 'Courier New', monospace;
     `;
     
-    // Generate receipt HTML
     receiptContainer.innerHTML = `
         <div class="text-center mb-4">
             <h3>🏥 PharmaCare Pharmacy</h3>
@@ -641,7 +497,6 @@ function generateReceipt(billData) {
             <p>📞 +91 9876543210 | GSTIN: 29ABCDE1234F1Z5</p>
             <hr>
         </div>
-        
         <div class="row mb-3">
             <div class="col-6">
                 <p><strong>Bill No:</strong> ${billData.billNumber}</p>
@@ -653,212 +508,72 @@ function generateReceipt(billData) {
                 ${billData.customer.phone ? `<p><strong>Phone:</strong> ${billData.customer.phone}</p>` : ''}
             </div>
         </div>
-        
         <table class="table table-sm mb-3">
             <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Item</th>
-                    <th class="text-center">Qty</th>
-                    <th class="text-end">Price</th>
-                    <th class="text-end">Amount</th>
-                </tr>
+                <tr><th>#</th><th>Item</th><th class="text-center">Qty</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr>
             </thead>
             <tbody>
                 ${billData.items.map((item, index) => `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td>${item.name}</td>
-                        <td class="text-center">${item.quantity}</td>
-                        <td class="text-end">₹${item.price.toFixed(2)}</td>
-                        <td class="text-end">₹${item.total.toFixed(2)}</td>
-                    </tr>
+                    <tr><td>${index + 1}</td><td>${item.name}</td><td class="text-center">${item.quantity}</td><td class="text-end">₹${item.price.toFixed(2)}</td><td class="text-end">₹${item.total.toFixed(2)}</td></tr>
                 `).join('')}
             </tbody>
         </table>
-        
         <div class="receipt-totals">
-            <div class="d-flex justify-content-between">
-                <span>Subtotal:</span>
-                <span>₹${billData.subtotal.toFixed(2)}</span>
-            </div>
-            <div class="d-flex justify-content-between">
-                <span>Tax (5%):</span>
-                <span>₹${billData.tax.toFixed(2)}</span>
-            </div>
-            <div class="d-flex justify-content-between">
-                <span>Discount:</span>
-                <span>-₹${billData.discount.toFixed(2)}</span>
-            </div>
+            <div class="d-flex justify-content-between"><span>Subtotal:</span><span>₹${billData.subtotal.toFixed(2)}</span></div>
+            <div class="d-flex justify-content-between"><span>Tax (5%):</span><span>₹${billData.tax.toFixed(2)}</span></div>
+            <div class="d-flex justify-content-between"><span>Discount:</span><span>-₹${billData.discount.toFixed(2)}</span></div>
             <hr>
-            <div class="d-flex justify-content-between fw-bold fs-5">
-                <span>Total Amount:</span>
-                <span>₹${billData.total.toFixed(2)}</span>
-            </div>
+            <div class="d-flex justify-content-between fw-bold fs-5"><span>Total Amount:</span><span>₹${billData.total.toFixed(2)}</span></div>
         </div>
-        
         <hr class="my-4">
-        
         <div class="text-center">
             <p class="mb-1"><strong>Thank you for your purchase!</strong></p>
             <p class="text-muted small">Goods sold are not returnable without original receipt</p>
-            <p class="text-muted small">Visit Again!</p>
         </div>
-        
         <div class="text-center mt-4">
-            <button onclick="printReceipt(this)" class="btn btn-primary me-2">
-                <i class="fas fa-print"></i> Print Receipt
-            </button>
-            <button onclick="this.closest('.receipt-container').remove()" class="btn btn-secondary">
-                <i class="fas fa-times"></i> Close
-            </button>
+            <button onclick="printReceipt(this)" class="btn btn-primary me-2"><i class="fas fa-print"></i> Print</button>
+            <button onclick="this.closest('.receipt-container').remove()" class="btn btn-secondary"><i class="fas fa-times"></i> Close</button>
         </div>
     `;
-    
-    // Add to page
     document.querySelector('.main-content').appendChild(receiptContainer);
-    
-    // Scroll to receipt
     receiptContainer.scrollIntoView({ behavior: 'smooth' });
 }
 
-// Print receipt
 function printReceipt(button) {
     const receiptContainer = button.closest('.receipt-container');
     if (!receiptContainer) return;
-    
-    const printContent = receiptContainer.innerHTML;
-    const originalContent = document.body.innerHTML;
-    
-    // Create print window
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
-        <html>
-            <head>
-                <title>Pharmacy Bill Receipt</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 20px; }
-                    @media print {
-                        body { margin: 0; padding: 10px; }
-                        .btn { display: none !important; }
-                    }
-                    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-                    th, td { padding: 8px; border: 1px solid #ddd; }
-                    .text-center { text-align: center; }
-                    .text-end { text-align: right; }
-                    .receipt-totals div { margin: 5px 0; }
-                </style>
-            </head>
-            <body>
-                ${printContent}
-            </body>
-        </html>
+        <html><head><title>Receipt</title>
+        <style>body{font-family:Arial;margin:20px}@media print{.btn{display:none!important}}table{width:100%;border-collapse:collapse;margin:15px 0}th,td{padding:8px;border:1px solid #ddd}.text-center{text-align:center}.text-end{text-align:right}</style>
+        </head><body>${receiptContainer.innerHTML}</body></html>
     `);
-    
     printWindow.document.close();
     printWindow.focus();
-    
-    // Auto-print after a short delay
-    setTimeout(() => {
-        printWindow.print();
-        // printWindow.close();
-    }, 250);
+    setTimeout(() => printWindow.print(), 250);
 }
 
-// Show message function
 function showMessage(message, type = 'info') {
-    // Remove existing messages
-    const existingMessages = document.querySelectorAll('.alert-toast');
-    existingMessages.forEach(msg => msg.remove());
-    
-    // Create message element
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `alert alert-${type} alert-toast`;
-    messageDiv.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 10000;
-        min-width: 300px;
-        max-width: 400px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        animation: slideIn 0.3s ease;
-    `;
-    
-    const icon = type === 'success' ? 'check-circle' :
-                 type === 'error' ? 'exclamation-triangle' :
-                 type === 'warning' ? 'exclamation-circle' : 'info-circle';
-    
-    messageDiv.innerHTML = `
-        <div class="d-flex align-items-start">
-            <i class="fas fa-${icon} mt-1 me-2"></i>
-            <div class="flex-grow-1">${message}</div>
-            <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button>
-        </div>
-    `;
-    
-    document.body.appendChild(messageDiv);
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-        if (messageDiv.parentElement) {
-            messageDiv.remove();
-        }
-    }, 5000);
+    const existing = document.querySelectorAll('.alert-toast');
+    existing.forEach(msg => msg.remove());
+    const div = document.createElement('div');
+    div.className = `alert alert-${type} alert-toast`;
+    div.style.cssText = `position:fixed;top:20px;right:20px;z-index:10000;min-width:300px;box-shadow:0 4px 12px rgba(0,0,0,0.15);animation:slideIn 0.3s ease;`;
+    const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle';
+    div.innerHTML = `<div class="d-flex align-items-start"><i class="fas fa-${icon} mt-1 me-2"></i><div class="flex-grow-1">${message}</div><button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button></div>`;
+    document.body.appendChild(div);
+    setTimeout(() => { if (div.parentElement) div.remove(); }, 5000);
 }
 
-// Add CSS styles
 function addStyles() {
+    if (document.querySelector('style[data-billing-css]')) return;
     const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        
-        .alert-toast {
-            position: fixed !important;
-            top: 20px !important;
-            right: 20px !important;
-            z-index: 10000 !important;
-        }
-        
-        .quantity-control {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .quantity-input {
-            width: 60px;
-            text-align: center;
-            padding: 5px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-        }
-        
-        .receipt-container {
-            animation: slideIn 0.3s ease;
-        }
-    `;
-    
-    // Only add if not already added
-    if (!document.querySelector('style[data-billing-css]')) {
-        style.setAttribute('data-billing-css', 'true');
-        document.head.appendChild(style);
-    }
+    style.setAttribute('data-billing-css', 'true');
+    style.textContent = `@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}.alert-toast{position:fixed!important;top:20px!important;right:20px!important;z-index:10000!important}.quantity-control{display:flex;align-items:center;gap:5px}.quantity-input{width:60px;text-align:center;padding:5px;border:1px solid #dee2e6;border-radius:4px}`;
+    document.head.appendChild(style);
 }
-
-// Initialize styles
 addStyles();
 
-// Make functions globally available
 window.updateQuantity = updateQuantity;
 window.removeFromCart = removeFromCart;
 window.printReceipt = printReceipt;

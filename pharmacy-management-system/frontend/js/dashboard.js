@@ -1,8 +1,7 @@
-// dashboard.js - Full Integrated Version with Chart & Sales
+// dashboard.js - Full Integrated Version with Cloud Bills
 var BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
-let stockChartInstance = null; // Chart memory ke liye
+let stockChartInstance = null; 
 
-// 1. Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🏥 Pharmacy Dashboard - Full System Loaded');
     
@@ -25,7 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// 2. Check Server Health
 async function checkServerHealth() {
     try {
         const response = await fetch(`${BASE_URL}/api/health`);
@@ -34,7 +32,6 @@ async function checkServerHealth() {
     } catch (error) { return false; }
 }
 
-// 3. Load Dashboard Stats
 async function loadDashboardStats() {
     try {
         const response = await fetch(`${BASE_URL}/api/medicines`);
@@ -58,7 +55,6 @@ async function loadDashboardStats() {
     }
 }
 
-// 4. Update UI Elements
 function updateDashboardUI(medicines) {
     if (!medicines || medicines.length === 0) return;
 
@@ -103,53 +99,45 @@ function updateDashboardUI(medicines) {
         if (el) el.textContent = value;
     }
     
-    // Yahan hum nayi Chart function call kar rahe hain
     updateStockChart(inStockCount, stats.lowStock, stats.outOfStock);
-    
     updateRecentMedicinesTable(medicines.slice(-5).reverse());
 }
 
-// NAYA FUNCTION: Stock Distribution Chart Banane Ke Liye
 function updateStockChart(inStock, lowStock, outOfStock) {
     const ctx = document.getElementById('stockChart');
-    if (!ctx) return;
-    
-    // Agar Chart.js library load nahi hui toh error roko
-    if (typeof Chart === 'undefined') return;
+    if (!ctx || typeof Chart === 'undefined') return;
 
-    // Purana chart destroy karo taaki naya upar overlap na ho
-    if (stockChartInstance) {
-        stockChartInstance.destroy();
-    }
+    if (stockChartInstance) stockChartInstance.destroy();
 
-    // Naya gol chart (Doughnut) draw karo
     stockChartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['In Stock (Good)', 'Low Stock (<10)', 'Out of Stock (0)'],
             datasets: [{
                 data: [inStock, lowStock, outOfStock],
-                backgroundColor: ['#28a745', '#ffc107', '#dc3545'], // Green, Yellow, Red
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
                 hoverOffset: 4
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom' }
-            }
-        }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
     });
 }
 
-// 5. Update Sales Stats & Recent Sales Table
-function updateSalesStats() {
+// NAYA: Ab ye function MongoDB Cloud se Data Mangwayega
+async function updateSalesStats() {
     try {
-        const billHistoryStr = localStorage.getItem('billHistory');
-        const billHistory = billHistoryStr ? JSON.parse(billHistoryStr) : [];
-        const todayStr = new Date().toDateString();
+        const response = await fetch(`${BASE_URL}/api/bills`);
+        let billHistory = [];
+        
+        if (response.ok) {
+            billHistory = await response.json(); // Cloud se data aagaya!
+        } else {
+            console.warn("Cloud bills fail, using local storage");
+            const localBills = localStorage.getItem('billHistory');
+            billHistory = localBills ? JSON.parse(localBills) : [];
+        }
 
+        const todayStr = new Date().toDateString();
         const todaySales = billHistory.filter(bill => new Date(bill.date).toDateString() === todayStr);
         const todaySalesCount = todaySales.length;
         const todaySalesAmount = todaySales.reduce((sum, bill) => sum + (bill.total || 0), 0);
@@ -164,7 +152,6 @@ function updateSalesStats() {
     } catch (error) { console.error("Sales Calculation Error:", error); }
 }
 
-// 6. Recent Sales Table Generation
 function updateRecentSalesTable(billHistory) {
     try {
         const container = document.getElementById('recentSales');
@@ -198,7 +185,6 @@ function updateRecentSalesTable(billHistory) {
     } catch (e) { console.error("Table render error:", e); }
 }
 
-// 7. Recent Medicines Table Update
 function updateRecentMedicinesTable(recentMeds) {
     const container = document.getElementById('recentMedicines');
     if (!container) return;

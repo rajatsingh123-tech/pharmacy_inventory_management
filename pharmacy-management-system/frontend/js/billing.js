@@ -1,6 +1,7 @@
 // billing.js - Complete Working Billing System
 
 // Global variables
+var API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 let cartItems = [];
 let medicineData = [];
 
@@ -71,8 +72,8 @@ async function loadMedicinesForBilling() {
         medicineSelect.innerHTML = '<option value="">Loading medicines...</option>';
         medicineSelect.disabled = true;
         
-        // Fetch medicines from API
-        const response = await fetch('http://https://pharmacy-backend-api-3ihh.onrender.com:3000/api/medicines');
+        // Fetch medicines from API (Fixed URL)
+        const response = await fetch(`${API_BASE_URL}/api/medicines`);
         
         if (!response.ok) {
             throw new Error(`HTTP error: ${response.status}`);
@@ -461,9 +462,9 @@ async function processBill() {
             billNumber: 'BILL-' + Date.now()
         };
         
-        // Try to update stock in backend
+        // Try to update stock in backend (Fixed URL)
         try {
-            const response = await fetch('http://https://pharmacy-backend-api-3ihh.onrender.com:3000/api/medicines/bill/process', {
+            const response = await fetch(`${API_BASE_URL}/api/medicines/bill/process`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

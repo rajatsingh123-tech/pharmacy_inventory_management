@@ -1,5 +1,6 @@
 // ============ PHARMACY MANAGEMENT SYSTEM - AUTHENTICATION ============
-const BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
+// CONST ko hatakar VAR kar diya taaki doosri files ke sath clash na ho
+var BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 
 // 1. Check if user is logged in
 function isAuthenticated() {

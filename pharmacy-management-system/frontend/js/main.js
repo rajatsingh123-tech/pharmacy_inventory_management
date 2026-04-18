@@ -1,15 +1,15 @@
 // main.js - Main JavaScript with Backend URL fix
 
-// 1. Sabse pehle apna Render Backend URL yahan declare karo
-const API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
+// 1. Sabse pehle apna Render Backend URL yahan declare karo (const ki jagah var lagaya hai error rokne ke liye)
+var API_BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 
 // Show message function
 function showMessage(message, type = 'info') {
     const messageDiv = document.getElementById('message');
     if (messageDiv) {
         const alertClass = type === 'success' ? 'alert-success' : 
-                          type === 'error' ? 'alert-error' : 
-                          type === 'warning' ? 'alert-warning' : 'alert';
+                           type === 'error' ? 'alert-error' : 
+                           type === 'warning' ? 'alert-warning' : 'alert';
         
         messageDiv.innerHTML = `
             <div class="alert ${alertClass}">

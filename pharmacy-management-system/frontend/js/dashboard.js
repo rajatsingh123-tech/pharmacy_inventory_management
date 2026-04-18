@@ -1,4 +1,4 @@
-// dashboard.js - Full Integrated Version with all Original Features
+// dashboard.js - Full Integrated Version with all Original Features (Fixed)
 // const ko var mein badal diya taaki main.js se clash na ho
 var BASE_URL = 'https://pharmacy-backend-api-3ihh.onrender.com';
 
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Setup Cross-tab update listener (Original Feature)
         window.addEventListener('storage', function(event) {
-            const updates = ['medicineAdded', 'medicineUpdated', 'medicineDeleted', 'dashboardNeedsUpdate'];
+            const updates = ['medicineAdded', 'medicineUpdated', 'medicineDeleted', 'dashboardNeedsUpdate', 'billProcessed'];
             if (updates.includes(event.key)) {
                 console.log('🔄 Remote change detected, refreshing dashboard...');
                 loadDashboardStats();
@@ -50,13 +50,24 @@ async function loadDashboardStats() {
         const response = await fetch(`${BASE_URL}/api/medicines`);
         if (!response.ok) throw new Error('Backend failed');
         
-        const data = await response.json();
+        // ROBUST FETCH: Handles different content types properly
+        let data;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            data = JSON.parse(text);
+        }
         
         // FIX: Handle API response format properly (API usually wraps data in 'medicines' array)
-        const medicinesArray = Array.isArray(data) ? data : (data.medicines || []);
+        const medicinesArray = Array.isArray(data) ? data : (data.medicines || data.data || []);
         
         updateDashboardUI(medicinesArray);
         console.log('✅ Dashboard synced with Render. Total items:', medicinesArray.length);
+
+        // NAYA FEATURE: Update Sales Data from Billing System
+        updateSalesStats();
 
     } catch (error) {
         console.error('❌ Stats Error:', error);
@@ -64,7 +75,7 @@ async function loadDashboardStats() {
     }
 }
 
-// 4. Update UI Elements (All original calculations)
+// 4. Update UI Elements (All original calculations & animations kept intact)
 function updateDashboardUI(medicines) {
     if (!medicines || medicines.length === 0) {
         console.warn("⚠️ No medicines data received for dashboard calculation");
@@ -116,26 +127,31 @@ function updateDashboardUI(medicines) {
         'emptyStockCount': stats.outOfStock
     };
 
-    // Update HTML elements safely
+    // Update HTML elements safely (Original Animation Logic, Made Error-Free)
     for (const [id, value] of Object.entries(elements)) {
         const el = document.getElementById(id);
         if (el) {
-            // Animation for numbers
             let start = 0;
             const end = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g,"")) : value;
-            if(!isNaN(end) && id !== 'totalStockValue') {
+            
+            // Animation for numbers (Fixed infinite loop bug for 0)
+            if(!isNaN(end) && end > 0 && id !== 'totalStockValue') {
                 const duration = 1000;
-                const stepTime = Math.abs(Math.floor(duration / (end || 1)));
+                let stepTime = Math.abs(Math.floor(duration / end));
+                if (stepTime < 10) stepTime = 10; // Prevent UI freeze if number is too large
+                let stepJump = Math.ceil(end / (duration / stepTime));
+
                 const timer = setInterval(() => {
-                    start += 1;
-                    el.textContent = start;
+                    start += stepJump;
                     if (start >= end) {
                         clearInterval(timer);
                         el.textContent = value;
+                    } else {
+                        el.textContent = start;
                     }
                 }, stepTime);
-                if (end === 0) el.textContent = 0;
             } else {
+                // If value is 0 or text, just assign it directly
                 el.textContent = value;
             }
         }
@@ -143,6 +159,26 @@ function updateDashboardUI(medicines) {
 
     // Update recent table (last 5 added)
     updateRecentMedicinesTable(medicines.slice(-5).reverse());
+}
+
+// NAYA FUNCTION: Fetch sales from LocalStorage (Billing History)
+function updateSalesStats() {
+    try {
+        const billHistory = JSON.parse(localStorage.getItem('billHistory') || '[]');
+        const todayStr = new Date().toDateString();
+
+        const todaySales = billHistory.filter(bill => new Date(bill.date).toDateString() === todayStr);
+        const todaySalesCount = todaySales.length;
+        const todaySalesAmount = todaySales.reduce((sum, bill) => sum + (bill.total || 0), 0);
+
+        const salesCountEl = document.getElementById('todaySales');
+        const salesAmtEl = document.getElementById('salesAmount');
+
+        if(salesCountEl) salesCountEl.textContent = todaySalesCount;
+        if(salesAmtEl) salesAmtEl.textContent = '₹' + todaySalesAmount.toFixed(2) + ' total';
+    } catch (error) {
+        console.error("Sales Calculation Error:", error);
+    }
 }
 
 // 5. Recent Table Update

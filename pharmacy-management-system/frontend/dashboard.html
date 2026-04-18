@@ -203,24 +203,21 @@
         </header>
         
         <div class="main-content">
-            <!-- Dashboard Header -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
                 <div>
-                    <!-- <h1><i class="fas fa-tachometer-alt"></i> Pharmacy Dashboard</h1> -->
-                    <p style="font-size: x-large;">Welcome🪢</p>
+                    <p style="font-size: x-large;">Welcome <span id="userName">Admin</span> 🪢</p>
                 </div>
                 <button class="refresh-btn" onclick="refreshDashboard()" title="Refresh Dashboard">
                     <i class="fas fa-sync-alt"></i>
                 </button>
             </div>
             
-            <!-- Stats Overview -->
             <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
                 <div class="stat-card">
                     <i class="fas fa-pills"></i>
                     <h3 id="totalMedicines">0</h3>
                     <p>Total Medicines</p>
-                    <small id="medicinesChange" style="color: #28a745;">+0 today</small>
+                    <small id="medicinesChange" style="color: #28a745;">Active inventory</small>
                 </div>
                 
                 <div class="stat-card success-card">
@@ -232,7 +229,7 @@
                 
                 <div class="stat-card info-card">
                     <i class="fas fa-rupee-sign"></i>
-                    <h3 id="totalValue">₹0</h3>
+                    <h3 id="totalStockValue">₹0</h3>
                     <p>Total Stock Value</p>
                     <small>Current inventory value</small>
                 </div>
@@ -245,7 +242,6 @@
                 </div>
             </div>
             
-            <!-- Alerts Section -->
             <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
                 <div class="stat-card danger-card">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -280,11 +276,8 @@
                 </div>
             </div>
             
-            <!-- Main Content Area -->
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 30px;">
-                <!-- Left Column: Recent Medicines & Stock Chart -->
                 <div>
-                    <!-- Recent Medicines -->
                     <div class="recent-activity">
                         <h3><i class="fas fa-history"></i> Recent Medicines</h3>
                         <div id="recentMedicines" class="loading-spinner">
@@ -297,16 +290,13 @@
                         </div>
                     </div>
                     
-                    <!-- Stock Chart -->
                     <div class="chart-container" style="margin-top: 30px;">
                         <h3><i class="fas fa-chart-pie"></i> Stock Distribution</h3>
                         <canvas id="stockChart" height="200"></canvas>
                     </div>
                 </div>
                 
-                <!-- Right Column: Quick Actions & Recent Activity -->
                 <div>
-                    <!-- Quick Actions -->
                     <div class="recent-activity" style="margin-bottom: 30px;">
                         <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -316,19 +306,12 @@
                             <a href="billing.html" class="btn btn-success" style="text-align: left;">
                                 <i class="fas fa-cash-register"></i> New Bill
                             </a>
-                            <!-- <button onclick="generateStockReport()" class="btn btn-info" style="text-align: left;">
-                                <i class="fas fa-file-export"></i> Stock Report
-                            </button>
-                            <button onclick="checkExpiryReport()" class="btn btn-warning" style="text-align: left;">
-                                <i class="fas fa-calendar-times"></i> Expiry Report
-                            </button> -->
                             <button onclick="printInventory()" class="btn btn-secondary" style="text-align: left;">
                                 <i class="fas fa-print"></i> Print Inventory
                             </button>
                         </div>
                     </div>
                     
-                    <!-- Recent Activity -->
                     <div class="recent-activity">
                         <h3><i class="fas fa-bell"></i> Recent Activity</h3>
                         <div id="activityFeed">
@@ -340,8 +323,7 @@
                         </div>
                     </div>
                     
-                    <!-- Stock Status Summary -->
-                    <div class="recent-activity" style="margin-left: 30px;">
+                    <div class="recent-activity" style="margin-top: 30px;">
                         <h3><i class="fas fa-clipboard-check"></i> Stock Status</h3>
                         <div id="stockSummary">
                             <p><span class="stock-indicator stock-high"></span> In Stock: <span id="inStockCount">0</span></p>
@@ -352,7 +334,6 @@
                 </div>
             </div>
             
-            <!-- Recent Sales -->
             <div class="recent-activity">
                 <h3><i class="fas fa-chart-bar"></i> Recent Sales</h3>
                 <div id="recentSales">
@@ -362,26 +343,31 @@
         </div>
     </div>
 
-    <!-- Chart.js Library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- Script Files -->
     <script src="js/auth.js"></script>
+    <script src="js/main.js"></script>
     <script src="js/dashboard.js"></script>
     
     <script>
-        // Initialize dashboard
+        // Initialize dashboard (Galtiya yahan theek ki hai)
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Dashboard initialized');
-            loadDashboardData();
+            if (typeof loadDashboardStats === 'function') {
+                loadDashboardStats(); // Yahan naam badla hai pehle data tha ab stats hai
+            }
             
             // Auto-refresh every 30 seconds
-            setInterval(loadDashboardData, 30000);
+            setInterval(() => {
+                if (typeof loadDashboardStats === 'function') {
+                    loadDashboardStats();
+                }
+            }, 30000);
             
             // Listen for storage events (for real-time updates)
             window.addEventListener('storage', function(event) {
-                if (event.key === 'medicinesUpdated') {
-                    loadDashboardData();
+                if (event.key === 'medicinesUpdated' && typeof loadDashboardStats === 'function') {
+                    loadDashboardStats();
                     addActivity('Medicine inventory updated from another tab', 'info');
                 }
             });
@@ -391,20 +377,12 @@
         function refreshDashboard() {
             const refreshBtn = document.querySelector('.refresh-btn i');
             refreshBtn.classList.add('fa-spin');
-            loadDashboardData();
+            if (typeof loadDashboardStats === 'function') {
+                loadDashboardStats();
+            }
             setTimeout(() => {
                 refreshBtn.classList.remove('fa-spin');
             }, 1000);
-        }
-        
-        // Generate stock report
-        function generateStockReport() {
-            alert('Stock report generation feature coming soon!');
-        }
-        
-        // Check expiry report
-        function checkExpiryReport() {
-            alert('Expiry report feature coming soon!');
         }
         
         // Print inventory
